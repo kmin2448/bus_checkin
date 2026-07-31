@@ -43,30 +43,30 @@
     font-weight:700;font-size:15px;text-decoration:none;white-space:nowrap}
   .row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:12px}
   .row > button,.row > .linkbtn{flex:1 1 0;min-width:0}
+  /* 편 선택 탭 안에 그 편의 취합 On/Off 스위치를 같이 둔다. */
   .tabs{display:flex;gap:8px;margin-bottom:10px}
-  .tabs button{flex:1 1 0;min-width:0;color:var(--gray);font-weight:700}
-  .tabs button.on{background:#fff;color:#000;font-weight:800;box-shadow:inset 0 -3px 0 var(--blue)}
-  .panelcard{background:#fff;border:1px solid var(--hair);border-radius:var(--r)}
-  .switches{margin:14px 0}
-  .sw-row{display:flex;align-items:center;gap:12px;padding:12px 14px}
-  .sw-row + .sw-row{border-top:1px solid var(--hair)}
-  .sw-row .lamp{width:9px;height:9px;border-radius:50%;background:var(--go);flex:none}
-  .sw-row.off .lamp{background:#C8CDD4}
-  .sw-row .txt{flex:1;min-width:0;font-size:15px;font-weight:800;letter-spacing:-.02em}
-  .sw-row .sub{display:block;font-weight:500;color:var(--gray);font-size:12px;margin-top:3px;
-    letter-spacing:0}
-  .switch{flex:none;position:relative;width:74px;height:36px;padding:0;border-radius:18px;
+  .tab{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:8px;height:56px;
+    padding:0 7px 0 12px;background:var(--btnbg);border:1px solid var(--btn);
+    border-radius:var(--r);cursor:pointer}
+  .tab.on{background:#fff;box-shadow:inset 0 -3px 0 var(--blue)}
+  .tab-pick{flex:1 1 0;min-width:0;height:100%;padding:0;border:0;background:transparent;
+    color:var(--gray);font-weight:700;font-size:15px;justify-content:flex-start;
+    letter-spacing:-.02em;overflow:hidden}
+  .tab.on .tab-pick{color:#000;font-weight:800}
+  .tab-pick:focus-visible{outline:none;box-shadow:none;
+    text-decoration:underline;text-underline-offset:4px}
+  .switch{flex:none;position:relative;width:62px;height:32px;padding:0;border-radius:16px;
     border:1px solid var(--btn);background:#E6E8EC;
     transition:background .18s ease,border-color .18s ease}
-  .switch .knob{position:absolute;top:3px;left:3px;width:28px;height:28px;border-radius:50%;
+  .switch .knob{position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;
     background:#fff;box-shadow:0 1px 3px rgba(20,24,32,.25);transition:transform .18s ease}
-  .switch .lab{position:absolute;top:0;right:12px;height:100%;display:flex;align-items:center;
-    font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--gray)}
+  .switch .lab{position:absolute;top:0;right:9px;height:100%;display:flex;align-items:center;
+    font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--gray)}
   .switch.on{background:#DCEBE2;border-color:#9EC6AF}
-  .switch.on .knob{transform:translateX(38px)}
-  .switch.on .lab{right:auto;left:13px;color:var(--go)}
+  .switch.on .knob{transform:translateX(30px)}
+  .switch.on .lab{right:auto;left:10px;color:var(--go)}
   .switch:disabled{opacity:.6;cursor:progress}
-  .swhint{font-size:13px;color:var(--gray);line-height:1.7;margin:0 0 4px;text-align:center}
+  .swhint{font-size:13px;color:var(--gray);line-height:1.7;margin:0;text-align:center}
   .counts{display:flex;gap:10px}
   .count{flex:1;background:#fff;border:1px solid var(--hair);border-radius:var(--r);padding:15px;text-align:center}
   .count .n{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1;letter-spacing:-.02em}
@@ -137,23 +137,15 @@
     <div class="head"><h1>탑승 현황</h1><span class="ghost">live.</span></div>
 
     <div class="tabs">
-      <button id="tab-out" class="on">가는 편</button>
-      <button id="tab-back">오는 편</button>
-    </div>
-    <p class="hint" style="margin-top:0">탭은 아래 명단을 볼 편을 고릅니다. 참가자 화면에는 아래에서 On으로 켠 편만 보입니다.</p>
-
-    <div class="switches panelcard">
-      <div class="sw-row" id="sw-row-out">
-        <span class="lamp"></span>
-        <span class="txt">가는 편 취합<span class="sub" id="sw-sub-out">—</span></span>
-        <button class="switch" id="sw-out" role="switch" aria-checked="true" aria-label="가는 편 취합">
+      <div class="tab on" id="tab-out">
+        <button class="tab-pick">가는 편</button>
+        <button class="switch" id="sw-out" role="switch" aria-checked="true" aria-label="가는 편 취합 On/Off">
           <span class="knob"></span><span class="lab">ON</span>
         </button>
       </div>
-      <div class="sw-row" id="sw-row-back">
-        <span class="lamp"></span>
-        <span class="txt">오는 편 취합<span class="sub" id="sw-sub-back">—</span></span>
-        <button class="switch" id="sw-back" role="switch" aria-checked="true" aria-label="오는 편 취합">
+      <div class="tab" id="tab-back">
+        <button class="tab-pick">오는 편</button>
+        <button class="switch" id="sw-back" role="switch" aria-checked="true" aria-label="오는 편 취합 On/Off">
           <span class="knob"></span><span class="lab">ON</span>
         </button>
       </div>
@@ -289,14 +281,10 @@ function paintSwitches(){
     sw.classList.toggle("on", on);
     sw.setAttribute("aria-checked", on ? "true" : "false");
     sw.querySelector(".lab").textContent = on ? "ON" : "OFF";
-    $("sw-row-" + leg).classList.toggle("off", !on);
-    $("sw-sub-" + leg).textContent = on
-      ? "참가자 화면에 노출 중입니다."
-      : "참가자 화면에 보이지 않습니다.";
   });
   const on = LEGS.filter(l => COLLECT[l]);
   $("swhint").textContent = on.length
-    ? "지금 참가자에게 열려 있는 편: " + on.map(legLabel).join(" · ")
+    ? "편 이름을 누르면 아래 명단이 바뀝니다. 지금 참가자에게 열려 있는 편: " + on.map(legLabel).join(" · ")
     : "두 편 모두 Off — 참가자 화면에 확인 버튼이 잠깁니다.";
 }
 
@@ -397,9 +385,6 @@ async function setLeg(leg){
   await rpc("set_leg", { leg: leg });
   load();
 }
-$("tab-out").onclick = () => setLeg("out");
-$("tab-back").onclick = () => setLeg("back");
-
 // 가는 편 / 오는 편 취합을 각각 On/Off 로 켜고 끈다.
 async function toggleCollect(leg){
   const sw = $("sw-" + leg);
@@ -413,7 +398,11 @@ async function toggleCollect(leg){
   finally{ sw.disabled = false; }
   load();
 }
-LEGS.forEach(leg => { $("sw-" + leg).onclick = () => toggleCollect(leg); });
+// 탭 몸통을 누르면 명단 보기가 바뀌고, 안에 있는 스위치는 취합만 켜고 끈다.
+LEGS.forEach(leg => {
+  $("tab-" + leg).onclick = (e) => { if(e.target.closest(".switch")) return; setLeg(leg); };
+  $("sw-" + leg).onclick = (e) => { e.stopPropagation(); toggleCollect(leg); };
+});
 
 async function enter(){
   CODE = $("code").value.trim();

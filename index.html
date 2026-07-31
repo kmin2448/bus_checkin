@@ -36,11 +36,6 @@
   .legmark{font-size:38px;line-height:1.06;font-weight:800;letter-spacing:-.045em;
     color:var(--ghostink);white-space:nowrap}
   .lede{margin:18px 0 26px;color:var(--gray);font-size:15px;line-height:1.6}
-  .legpick{display:flex;gap:8px;margin:0 0 22px}
-  .legpick button{flex:1 1 0;min-width:0;height:44px;padding:0 12px;font-family:inherit;font-size:15px;
-    font-weight:700;color:var(--gray);background:var(--btnbg);border:1px solid var(--btn);
-    border-radius:var(--r);cursor:pointer}
-  .legpick button.on{background:#fff;color:#000;font-weight:800;box-shadow:inset 0 -3px 0 var(--blue)}
   label{display:block;font-size:13px;font-weight:600;color:var(--gray);margin:0 0 8px}
   label.mt{margin-top:16px}
   input[type=tel],input[type=text],select{width:100%;height:56px;padding:0 14px;border:1px solid var(--btn);
@@ -121,11 +116,6 @@
         <span class="ghost">check-in.</span>
         <span class="legmark t-leg">가는 편</span>
       </div>
-    </div>
-
-    <div class="legpick hidden" id="legpick">
-      <button type="button" data-leg="out">가는 편</button>
-      <button type="button" data-leg="back">오는 편</button>
     </div>
 
     <label for="phone">휴대폰 번호</label>
@@ -284,21 +274,16 @@ function paintInfo(){
 }
 
 function paint(){
-  const legs = openLegs();
   document.querySelectorAll(".t-title").forEach(e => { if(STATE.title) e.textContent = STATE.title; });
   document.querySelectorAll(".t-leg").forEach(e => e.textContent = legLabel(LEG));
-  $("legpick").classList.toggle("hidden", legs.length < 2);
-  $("legpick").querySelectorAll("button").forEach(b => {
-    b.classList.toggle("on", b.dataset.leg === LEG);
-  });
   paintInfo();
 }
 
-// 운영자가 On 으로 켠 편만 참가자에게 보여 준다.
+// 참가자는 편을 고르지 않는다. 운영자가 On 으로 켠 편(bus_status 의 leg)을 그대로 따른다.
 function syncLeg(){
   const legs = openLegs();
   if(!legs.length) return;
-  if(legs.indexOf(LEG) < 0) LEG = legs.indexOf(STATE.leg) >= 0 ? STATE.leg : legs[0];
+  LEG = legs.indexOf(STATE.leg) >= 0 ? STATE.leg : legs[0];
 }
 
 async function loadStatus(reset){
@@ -345,15 +330,6 @@ function noteValue(){
   const v = $("r-note-sel").value;
   return v === "__custom" ? $("r-note-in").value.trim() : v;
 }
-
-$("legpick").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-leg]");
-  if(!b) return;
-  LEG = b.dataset.leg;
-  err.classList.add("hidden");
-  $("req-open").classList.add("hidden");
-  paint();
-});
 
 phone.addEventListener("input", () => {
   phone.value = pretty(digits(phone.value));
