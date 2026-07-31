@@ -37,6 +37,8 @@
     display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
   button.small{font-size:13px;padding:0 10px}
   button.hl{background:#fff;border:1.5px solid var(--navy);color:var(--navy);font-weight:800}
+  button.danger{color:var(--warn)}
+  button:disabled{color:#9AA1AB;background:#FAFAF8;border-color:#E7E5DE;cursor:not-allowed}
   button:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
   .linkbtn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;
     border:1px solid var(--btn);border-radius:var(--r);background:var(--btnbg);color:#000;
@@ -84,8 +86,10 @@
   li button{flex:none}
   li.done{color:var(--gray)}
   li.blank{justify-content:center;color:var(--gray);font-size:14px;padding:22px 14px}
-  li.gh{display:block;padding:8px 12px;background:#F7F6F3;font-size:11px;font-weight:800;
+  li.gh{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:6px 6px 6px 12px;background:#F7F6F3;font-size:11px;font-weight:800;
     letter-spacing:.06em;color:var(--gray)}
+  li.gh button{flex:none;height:28px;padding:0 10px;font-size:12px;font-weight:700;letter-spacing:0}
   .hint{font-size:13px;color:var(--gray);line-height:1.7;margin:10px 0 0;text-align:center}
   .bell{position:fixed;top:14px;right:14px;z-index:15;width:46px;height:46px;padding:0;
     box-shadow:var(--shadow)}
@@ -111,6 +115,32 @@
   .reqitem .sub s{font-family:var(--mono);color:var(--gray)}
   .reqitem .acts{display:flex;gap:8px;margin-top:10px;flex-wrap:nowrap}
   .reqitem .acts button{flex:1 1 0;min-width:0}
+  /* 소속·팀별 문자 보내기 */
+  .dialog.sms{text-align:left}
+  .dialog.sms h3,.dialog.sms .s{text-align:left}
+  .fld{display:block;font-size:12px;font-weight:700;color:var(--gray);margin:16px 0 6px}
+  .dialog select,.dialog textarea{width:100%;padding:10px 12px;border:1px solid var(--btn);
+    border-radius:var(--r);background:#fff;color:var(--ink);font-family:inherit;font-size:15px;
+    -webkit-appearance:none;appearance:none}
+  .dialog select{height:44px;padding:0 12px}
+  .dialog textarea{line-height:1.6;resize:vertical;min-height:104px}
+  .dialog select:focus,.dialog textarea:focus{outline:none;border-color:var(--navy);
+    box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .cnt{margin:6px 0 0;font-size:12px;color:var(--gray);text-align:right}
+  .cnt b{font-family:var(--mono);font-weight:600;color:var(--ink)}
+  .batch{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--hair)}
+  .batch:first-child{border-top:0}
+  .batch .bi{flex:1;min-width:0}
+  .batch .bi b{display:block;font-size:13px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+  .batch .bi span{display:block;font-size:12px;color:var(--gray);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .batch.sent .bi b{color:var(--go)}
+  .batch .sendbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;
+    height:40px;padding:0 14px;border:1.5px solid var(--navy);border-radius:var(--r);
+    background:#fff;color:var(--navy);font-weight:800;font-size:14px;text-decoration:none;
+    white-space:nowrap}
+  .batch.sent .sendbtn{border:1px solid var(--btn);background:var(--btnbg);color:#000;font-weight:700}
+  .batch button{flex:none;height:40px}
   .hidden{display:none !important}
 </style>
 </head>
@@ -177,6 +207,36 @@
     <p class="s">참가자가 보낸 요청입니다. 반영하면 바로 탑승 확인을 할 수 있습니다.</p>
     <div id="req-list"></div>
     <div class="row"><button id="req-close">닫기</button></div>
+  </div>
+</div>
+
+<div id="sms-modal" class="mask hidden" role="dialog" aria-modal="true">
+  <div class="dialog sms">
+    <h3 id="sms-title">문자 보내기</h3>
+    <p class="s" id="sms-sub">—</p>
+
+    <label class="fld" for="sms-tpl">저장해 둔 메시지</label>
+    <select id="sms-tpl"><option value="">새로 작성</option></select>
+
+    <label class="fld" for="sms-body">보낼 내용</label>
+    <textarea id="sms-body" placeholder="예: 잠시 후 버스가 출발합니다. 아직 탑승 전이시면 바로 와 주세요."></textarea>
+    <p class="cnt" id="sms-cnt">—</p>
+    <div class="row">
+      <button id="sms-save" class="small">이 내용 저장</button>
+      <button id="sms-del" class="small danger" disabled>저장한 메시지 삭제</button>
+    </div>
+
+    <label class="fld" id="sms-bh">받는 사람</label>
+    <div id="sms-batches"></div>
+
+    <p class="hint" style="text-align:left">
+      버튼을 누르면 휴대폰 문자 앱이 열리고 받는 사람과 내용이 채워집니다.
+      마지막 <b>보내기는 문자 앱에서 직접</b> 눌러 주세요. 운영자 본인 번호로 나갑니다.
+    </p>
+    <div class="row">
+      <button id="sms-copy-body" class="small">내용 복사</button>
+      <button id="sms-close">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -253,17 +313,26 @@ function fillList(id, arr, msg){
     ul.appendChild(el);
     return;
   }
-  let cur = null;
+  // 소속·팀 단위로 묶어 두고, 묶음마다 문자 보내기 버튼을 단다.
+  const groups = [];
   arr.slice().sort(byGroupName).forEach(r => {
     const g = (r.note || "").trim();
-    if(g !== cur){
-      cur = g;
-      const h = document.createElement("li");
-      h.className = "gh";
-      h.textContent = g || "소속 없음";
-      ul.appendChild(h);
-    }
-    ul.appendChild(rowItem(r));
+    if(!groups.length || groups[groups.length - 1].name !== g) groups.push({ name:g, rows:[] });
+    groups[groups.length - 1].rows.push(r);
+  });
+  groups.forEach(g => {
+    const label = g.name || "소속 없음";
+    const h = document.createElement("li");
+    h.className = "gh";
+    const nm = document.createElement("span");
+    nm.textContent = label + " · " + g.rows.length + "명";
+    const sms = document.createElement("button");
+    sms.textContent = "문자";
+    sms.title = label + " 문자 보내기";
+    sms.onclick = () => openSms(label, g.rows);
+    h.appendChild(nm); h.appendChild(sms);
+    ul.appendChild(h);
+    g.rows.forEach(r => ul.appendChild(rowItem(r)));
   });
 }
 
@@ -377,7 +446,9 @@ $("bell").onclick = openRequests;
 $("req-close").onclick = closeRequests;
 $("req-modal").addEventListener("click", (e) => { if(e.target === $("req-modal")) closeRequests(); });
 document.addEventListener("keydown", (e) => {
-  if(e.key === "Escape" && !$("req-modal").classList.contains("hidden")) closeRequests();
+  if(e.key !== "Escape") return;
+  if(!$("req-modal").classList.contains("hidden")) closeRequests();
+  if(!$("sms-modal").classList.contains("hidden")) closeSms();
 });
 
 async function setLeg(leg){
@@ -403,6 +474,206 @@ LEGS.forEach(leg => {
   $("tab-" + leg).onclick = (e) => { if(e.target.closest(".switch")) return; setLeg(leg); };
   $("sw-" + leg).onclick = (e) => { e.stopPropagation(); toggleCollect(leg); };
 });
+
+/* ---------------------------------------------------------------- 문자 보내기
+   실제 발송은 서버가 하지 않는다. sms: 링크로 휴대폰 기본 문자 앱을 열어
+   받는 사람과 내용을 채워 주고, 마지막 전송은 운영자가 직접 누른다.
+   그래서 운영자 본인 번호로 나가고, 발신번호 등록이나 API 키가 필요 없다. */
+const SMS_CHUNK = 20;
+let SMS_TPLS = [], SMS_ROWS = [], SMS_GROUP = "";
+
+async function smsRpc(action, payload){
+  const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/bus_sms_admin", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    body: JSON.stringify({ p_code: CODE, p_action: action, p_payload: payload || {} })
+  });
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// iOS 는 sms: 뒤에 ?body= 가 아니라 &body= 를 받는다.
+function smsIsIOS(){
+  return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+function smsHref(nums, text){
+  return "sms:" + nums.join(",") + (smsIsIOS() ? "&" : "?") + "body=" + encodeURIComponent(text);
+}
+
+// 국내 통신사 기준: 한글 2바이트, 90바이트까지 SMS.
+function smsBytes(s){
+  let n = 0;
+  for(let i = 0; i < s.length; i++) n += s.charCodeAt(i) > 127 ? 2 : 1;
+  return n;
+}
+
+function copyText(text, btn){
+  const done = () => {
+    const keep = btn.textContent;
+    btn.textContent = "복사됨";
+    setTimeout(() => { btn.textContent = keep; }, 1200);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done, () => alert(text));
+    return;
+  }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); done(); }catch(e){ alert(text); }
+  document.body.removeChild(ta);
+}
+
+function smsCount(){
+  const v = $("sms-body").value;
+  const b = smsBytes(v);
+  $("sms-cnt").innerHTML = v
+    ? "<b>" + v.length + "</b>자 · <b>" + b + "</b>바이트 · " + (b <= 90 ? "단문(SMS)" : "장문(LMS)")
+    : "내용을 입력하면 글자 수가 표시됩니다.";
+}
+
+function smsBatches(){
+  const rows = SMS_ROWS;
+  const out = [];
+  for(let i = 0; i < rows.length; i += SMS_CHUNK) out.push(rows.slice(i, i + SMS_CHUNK));
+  return out;
+}
+
+// 20명을 넘으면 20명씩 끊어서 묶음마다 따로 연다.
+function paintBatches(){
+  const box = $("sms-batches");
+  box.innerHTML = "";
+  const parts = smsBatches();
+  const text = $("sms-body").value;
+
+  if(!SMS_ROWS.length){
+    const p = document.createElement("p");
+    p.className = "hint"; p.style.margin = "0"; p.style.textAlign = "left";
+    p.textContent = "이 소속에는 번호가 있는 사람이 없습니다.";
+    box.appendChild(p);
+    return;
+  }
+
+  parts.forEach((part, i) => {
+    const el = document.createElement("div"); el.className = "batch";
+    const bi = document.createElement("div"); bi.className = "bi";
+    const t = document.createElement("b");
+    t.textContent = parts.length > 1
+      ? (i + 1) + "번째 묶음 · " + (i * SMS_CHUNK + 1) + "–" + (i * SMS_CHUNK + part.length) + "번째 (" + part.length + "명)"
+      : part.length + "명";
+    const names = document.createElement("span");
+    names.textContent = part.map(r => r.name).join(", ");
+    bi.appendChild(t); bi.appendChild(names);
+
+    const a = document.createElement("a");
+    a.className = "sendbtn";
+    a.textContent = "문자 앱 열기";
+    a.href = smsHref(part.map(r => r.phone), text);
+    a.onclick = () => { el.classList.add("sent"); a.textContent = "다시 열기"; };
+
+    const cp = document.createElement("button");
+    cp.className = "small";
+    cp.textContent = "번호 복사";
+    cp.onclick = () => copyText(part.map(r => fmtPhone(r.phone)).join(", "), cp);
+
+    el.appendChild(bi); el.appendChild(a); el.appendChild(cp);
+    box.appendChild(el);
+  });
+}
+
+// 내용만 바뀔 때는 링크만 갈아 끼운다. (이미 연 묶음 표시를 지우지 않으려고)
+function refreshHrefs(){
+  const text = $("sms-body").value;
+  const parts = smsBatches();
+  $("sms-batches").querySelectorAll(".sendbtn").forEach((a, i) => {
+    if(parts[i]) a.href = smsHref(parts[i].map(r => r.phone), text);
+  });
+}
+
+async function loadTemplates(keep){
+  try{
+    const d = await smsRpc("list");
+    SMS_TPLS = (d && d.rows) || [];
+  }catch(e){ SMS_TPLS = []; }
+  const sel = $("sms-tpl");
+  sel.innerHTML = "";
+  const o0 = document.createElement("option");
+  o0.value = ""; o0.textContent = SMS_TPLS.length ? "새로 작성" : "저장한 메시지 없음 — 새로 작성";
+  sel.appendChild(o0);
+  SMS_TPLS.forEach(t => {
+    const o = document.createElement("option");
+    o.value = String(t.id); o.textContent = t.title;
+    sel.appendChild(o);
+  });
+  sel.value = SMS_TPLS.some(t => String(t.id) === String(keep)) ? String(keep) : "";
+  smsSyncButtons();
+}
+
+function smsSyncButtons(){
+  const picked = $("sms-tpl").value;
+  $("sms-del").disabled = !picked;
+  $("sms-save").textContent = picked ? "저장한 메시지 고치기" : "이 내용 저장";
+}
+
+$("sms-tpl").addEventListener("change", () => {
+  const t = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  if(t){ $("sms-body").value = t.body; smsCount(); refreshHrefs(); }
+  smsSyncButtons();
+});
+
+$("sms-body").addEventListener("input", () => {
+  // 내용을 손대면 더 이상 그 저장 메시지가 아니다. 목록을 "새로 작성"으로 되돌린다.
+  const cur = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  if(cur && cur.body !== $("sms-body").value){ $("sms-tpl").value = ""; smsSyncButtons(); }
+  smsCount();
+  refreshHrefs();
+});
+
+$("sms-save").onclick = async () => {
+  const body = $("sms-body").value.trim();
+  if(!body){ alert("보낼 내용을 먼저 입력해 주세요."); return; }
+  const picked = $("sms-tpl").value;
+  const cur = SMS_TPLS.find(x => String(x.id) === picked);
+  const title = prompt("저장할 이름", cur ? cur.title : body.split("\n")[0].slice(0, 20));
+  if(title === null) return;
+  if(!title.trim()){ alert("이름을 넣어 주세요."); return; }
+  const payload = { title: title.trim(), body: body };
+  if(cur) payload.id = cur.id;
+  let d;
+  try{ d = await smsRpc("save", payload); }catch(e){ d = null; }
+  if(!d || d.status !== "ok"){ alert("저장하지 못했습니다."); return; }
+  await loadTemplates(d.id);
+};
+
+$("sms-del").onclick = async () => {
+  const cur = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  if(!cur) return;
+  if(!confirm("저장한 메시지 \"" + cur.title + "\" 을(를) 삭제합니다.")) return;
+  try{ await smsRpc("del", { id: cur.id }); }catch(e){}
+  await loadTemplates("");
+};
+
+$("sms-copy-body").onclick = () => copyText($("sms-body").value, $("sms-copy-body"));
+
+function openSms(group, rows){
+  SMS_GROUP = group;
+  SMS_ROWS = (rows || []).filter(r => r.phone);
+  const n = SMS_ROWS.length;
+  const parts = Math.ceil(n / SMS_CHUNK);
+  $("sms-title").textContent = "문자 보내기 — " + group;
+  $("sms-sub").textContent = legLabel(LEG) + " · " + n + "명" +
+    (parts > 1 ? " · 한 번에 " + SMS_CHUNK + "명씩 " + parts + "번에 나눠 보냅니다" : "");
+  $("sms-bh").textContent = parts > 1 ? "받는 사람 — " + parts + "개 묶음" : "받는 사람";
+  $("sms-modal").classList.remove("hidden");
+  smsCount();
+  paintBatches();
+  loadTemplates($("sms-tpl").value);
+}
+function closeSms(){ $("sms-modal").classList.add("hidden"); }
+
+$("sms-close").onclick = closeSms;
+$("sms-modal").addEventListener("click", (e) => { if(e.target === $("sms-modal")) closeSms(); });
 
 async function enter(){
   CODE = $("code").value.trim();
