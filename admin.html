@@ -28,6 +28,8 @@
   h1{margin:0;font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.045em}
   .ghost{font-size:19px;font-weight:800;letter-spacing:-.04em;color:#E2E0D9;white-space:nowrap;padding-top:6px}
   h2{font-size:13px;font-weight:700;margin:30px 0 10px;color:var(--gray)}
+  h2.h2row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  h2.h2row button{flex:none;height:30px;padding:0 10px;font-size:12px}
   input,button{font-family:inherit}
   input[type=password]{width:100%;height:44px;padding:0 13px;border:1px solid var(--btn);
     border-radius:var(--r);background:#fff;font-size:15px;color:var(--ink)}
@@ -189,10 +191,12 @@
     </div>
     <p class="stamp" id="stamp">—</p>
 
-    <h2>미탑승 — 번호를 누르면 바로 전화</h2>
+    <h2 class="h2row">미탑승 — 번호를 누르면 바로 전화
+      <button id="sms-all-left" class="small">전체 문자</button></h2>
     <ul id="list-left"></ul>
 
-    <h2>탑승 완료</h2>
+    <h2 class="h2row">탑승 완료
+      <button id="sms-all-done" class="small">전체 문자</button></h2>
     <ul id="list-done"></ul>
 
     <div class="row" style="margin-top:26px"><a class="linkbtn" href="manage.html">명단 · 관리 페이지 열기</a></div>
@@ -226,6 +230,13 @@
       <button id="sms-del" class="small danger" disabled>저장한 메시지 삭제</button>
     </div>
 
+    <label class="fld" for="sms-chunk">한 번에 보낼 인원</label>
+    <select id="sms-chunk">
+      <option value="20">20명씩 묶어서</option>
+      <option value="15">15명씩 묶어서</option>
+      <option value="10">10명씩 묶어서</option>
+    </select>
+
     <label class="fld" id="sms-bh">받는 사람</label>
     <div id="sms-batches"></div>
 
@@ -247,6 +258,7 @@ const $ = (id) => document.getElementById(id);
 const LEGS = ["out","back"];
 let CODE = "", LEG = "out";
 let COLLECT = { out:true, back:true };
+let SMS_LISTS = { left:[], done:[] };   // 목록 전체로 문자 보낼 때 쓰는 현재 명단
 
 async function rpc(action, payload){
   const body = Object.assign({ leg: LEG }, payload || {});
@@ -368,6 +380,7 @@ function render(d){
   const rows = d.rows || [];
   const left = rows.filter(r => !r.boarded);
   const done = rows.filter(r => r.boarded);
+  SMS_LISTS = { left: left.slice().sort(byGroupName), done: done.slice().sort(byGroupName) };
   $("c-left").textContent = left.length;
   $("c-done").textContent = done.length;
   $("c-all").textContent = rows.length;
@@ -479,7 +492,7 @@ LEGS.forEach(leg => {
    실제 발송은 서버가 하지 않는다. sms: 링크로 휴대폰 기본 문자 앱을 열어
    받는 사람과 내용을 채워 주고, 마지막 전송은 운영자가 직접 누른다.
    그래서 운영자 본인 번호로 나가고, 발신번호 등록이나 API 키가 필요 없다. */
-const SMS_CHUNK = 20;
+let SMS_CHUNK = 20;
 let SMS_TPLS = [], SMS_ROWS = [], SMS_GROUP = "";
 
 async function smsRpc(action, payload){
@@ -656,21 +669,42 @@ $("sms-del").onclick = async () => {
 
 $("sms-copy-body").onclick = () => copyText($("sms-body").value, $("sms-copy-body"));
 
-function openSms(group, rows){
-  SMS_GROUP = group;
-  SMS_ROWS = (rows || []).filter(r => r.phone);
+function smsHead(){
   const n = SMS_ROWS.length;
   const parts = Math.ceil(n / SMS_CHUNK);
-  $("sms-title").textContent = "문자 보내기 — " + group;
   $("sms-sub").textContent = legLabel(LEG) + " · " + n + "명" +
     (parts > 1 ? " · 한 번에 " + SMS_CHUNK + "명씩 " + parts + "번에 나눠 보냅니다" : "");
   $("sms-bh").textContent = parts > 1 ? "받는 사람 — " + parts + "개 묶음" : "받는 사람";
+}
+
+$("sms-chunk").addEventListener("change", () => {
+  SMS_CHUNK = parseInt($("sms-chunk").value, 10) || 20;
+  smsHead();
+  paintBatches();
+});
+
+function openSms(group, rows, chunk){
+  SMS_GROUP = group;
+  SMS_ROWS = (rows || []).filter(r => r.phone);
+  if(chunk) $("sms-chunk").value = String(chunk);
+  SMS_CHUNK = parseInt($("sms-chunk").value, 10) || 20;
+  $("sms-title").textContent = "문자 보내기 — " + group;
+  smsHead();
   $("sms-modal").classList.remove("hidden");
   smsCount();
   paintBatches();
   loadTemplates($("sms-tpl").value);
 }
 function closeSms(){ $("sms-modal").classList.add("hidden"); }
+
+// 소속과 상관없이 목록 전체를 15명씩 끊어 보낸다.
+function openSmsList(kind){
+  const rows = SMS_LISTS[kind] || [];
+  if(!rows.length){ alert("보낼 사람이 없습니다."); return; }
+  openSms(kind === "left" ? "미탑승 전체" : "탑승 완료 전체", rows, 15);
+}
+$("sms-all-left").onclick = () => openSmsList("left");
+$("sms-all-done").onclick = () => openSmsList("done");
 
 $("sms-close").onclick = closeSms;
 $("sms-modal").addEventListener("click", (e) => { if(e.target === $("sms-modal")) closeSms(); });
