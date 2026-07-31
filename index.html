@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>버스 탑승 확인</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root{
+    --bg:#F3F2EF; --ink:#0A0C0F; --gray:#6B7280; --btn:#CBD3DD; --btnbg:#EDF1F9;
+    --hair:#E7E5DE; --soft:#FAFAF8; --softline:#E7E5DE; --navy:#1E3A5F; --divider:#C3CCD8;
+    --grad:linear-gradient(120deg,#FDF3F5 0%,#EAE7F1 45%,#B5D1E2 100%);
+    --blue:#2F6BFF; --warn:#C0392B; --go:#0E7A46; --ghostink:#E2E0D9;
+    --r:5px; --shadow:0 6px 20px rgba(30,40,60,.07);
+    --mono: ui-monospace,"SFMono-Regular","Menlo",monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100dvh;color:var(--ink);background:var(--bg);
+    font-family:"Pretendard Variable",Pretendard,-apple-system,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;justify-content:center;
+    padding:34px 20px calc(34px + env(safe-area-inset-bottom));
+  }
+  .wrap{width:100%;max-width:420px}
+  .kicker{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--gray);letter-spacing:.01em}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+  .head.legged{margin-bottom:26px}
+  h1{margin:0;font-size:38px;line-height:1.06;font-weight:800;letter-spacing:-.045em}
+  .ghostbox{display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding-top:7px}
+  .ghost{font-size:19px;font-weight:800;letter-spacing:-.04em;color:var(--ghostink);white-space:nowrap;padding-top:7px}
+  .ghostbox .ghost{padding-top:0}
+  .legmark{font-size:38px;line-height:1.06;font-weight:800;letter-spacing:-.045em;
+    color:var(--ghostink);white-space:nowrap}
+  .lede{margin:18px 0 26px;color:var(--gray);font-size:15px;line-height:1.6}
+  .legpick{display:flex;gap:8px;margin:0 0 22px}
+  .legpick button{flex:1 1 0;min-width:0;height:44px;padding:0 12px;font-family:inherit;font-size:15px;
+    font-weight:700;color:var(--gray);background:var(--btnbg);border:1px solid var(--btn);
+    border-radius:var(--r);cursor:pointer}
+  .legpick button.on{background:#fff;color:#000;font-weight:800;box-shadow:inset 0 -3px 0 var(--blue)}
+  label{display:block;font-size:13px;font-weight:600;color:var(--gray);margin:0 0 8px}
+  label.mt{margin-top:16px}
+  input[type=tel],input[type=text],select{width:100%;height:56px;padding:0 14px;border:1px solid var(--btn);
+    border-radius:var(--r);background:#fff;color:var(--ink);font-family:inherit;font-size:17px;
+    -webkit-appearance:none;appearance:none}
+  input[type=tel]{text-align:center}
+  select{background-image:linear-gradient(45deg,transparent 50%,var(--gray) 50%),linear-gradient(135deg,var(--gray) 50%,transparent 50%);
+    background-position:calc(100% - 20px) 25px,calc(100% - 14px) 25px;background-size:6px 6px,6px 6px;background-repeat:no-repeat}
+  input.big{font-family:var(--mono);font-size:24px;letter-spacing:.03em}
+  input:focus,select:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  input::placeholder{color:#AEB6C0}
+  button.primary{width:100%;height:56px;margin-top:12px;padding:0 14px;font-family:inherit;font-size:17px;
+    font-weight:700;color:#000;background:var(--btnbg);border:1px solid var(--btn);border-radius:var(--r);
+    cursor:pointer;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+  button.primary:disabled{color:#9AA1AB;background:var(--soft);border-color:var(--softline);cursor:not-allowed}
+  button.primary.hl{background:#fff;border:1.5px solid var(--navy);color:var(--navy);font-weight:800;
+    box-shadow:0 6px 18px rgba(30,58,95,.12)}
+  button.primary:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  button.ghostbtn{margin-top:10px;background:transparent;border:0;color:var(--gray);
+    font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;padding:8px 0;width:100%}
+  .notice{margin:14px 0 0;color:var(--go);font-size:16px;font-weight:700;line-height:1.55;letter-spacing:-.02em}
+  .note{margin-top:18px;font-size:13px;line-height:1.7;color:var(--gray)}
+  .info{margin-top:22px;background:var(--bg);border:0;border-radius:0;padding:0}
+  .info .r{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    font-size:13px;color:var(--gray);padding:14px 2px}
+  .info .r + .r{border-top:1px solid var(--divider)}
+  .info .r b{font-size:16px;font-weight:800;color:var(--ink);text-align:right;letter-spacing:-.02em}
+  .step{background:var(--soft);border:1px solid var(--softline);border-radius:var(--r);
+    padding:16px 18px;margin-top:12px}
+  .step.on{background:var(--grad);border-color:#C9DCEA;box-shadow:0 8px 22px rgba(30,40,60,.10)}
+  .step .st{margin:0;font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--gray)}
+  .step.on .st{color:#41506B}
+  .step .sn{margin:6px 0 0;font-size:22px;font-weight:800;letter-spacing:-.03em}
+  .step .sm{margin:8px 0 0;font-size:13px;line-height:1.65;color:var(--gray)}
+  .step.on .sm{color:#41506B}
+  .backlink{display:block;text-align:center;margin-top:24px;font-size:13px;font-weight:600;
+    color:var(--gray);text-decoration:underline;text-underline-offset:4px}
+  .card{background:#fff;border:1px solid var(--hair);border-radius:var(--r);box-shadow:var(--shadow);padding:26px 22px}
+  .status{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--blue)}
+  .status.stop{color:var(--warn)}
+  .who{margin:0;font-size:30px;font-weight:800;letter-spacing:-.04em}
+  .rule{margin:18px -22px;border-top:1px solid var(--hair)}
+  .meta{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--gray)}
+  .meta + .meta{margin-top:10px}
+  .meta b{font-family:var(--mono);font-size:20px;color:var(--ink);font-weight:600}
+  .afterrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:20px}
+  .again{font-size:14px;font-weight:600;color:var(--ink);text-underline-offset:4px}
+  .again.cancel{color:var(--warn);text-align:right;margin-left:auto}
+  .err{color:var(--warn);font-size:14px;margin-top:12px;line-height:1.6}
+  .mask{position:fixed;inset:0;z-index:20;background:rgba(20,24,32,.34);
+    display:flex;align-items:center;justify-content:center;padding:24px}
+  .dialog{background:#fff;border-radius:var(--r);box-shadow:0 18px 44px rgba(20,24,32,.22);
+    padding:26px 22px 22px;width:100%;max-width:340px;text-align:center}
+  .dialog .q{margin:0;font-size:24px;font-weight:800;letter-spacing:-.035em;line-height:1.3;text-align:center}
+  .dialog .s{margin:10px 0 22px;font-size:14px;color:var(--gray);line-height:1.6;text-align:center}
+  .dialog .btns{display:flex;gap:8px;flex-wrap:nowrap}
+  .dialog button{flex:1 1 0;min-width:0;height:52px;padding:0 10px;font-family:inherit;font-size:16px;
+    font-weight:700;color:#000;background:var(--btnbg);border:1px solid var(--btn);border-radius:var(--r);
+    cursor:pointer;white-space:nowrap}
+  .dialog button.yes{font-weight:800;background:#fff;border:1.5px solid var(--navy);color:var(--navy)}
+  .dialog button.no-warn{color:var(--warn)}
+  .dialog button:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .hidden{display:none !important}
+  @media (prefers-reduced-motion:no-preference){
+    .card,.dialog{animation:rise .3s ease-out}
+    @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="form-view" class="hidden">
+    <p class="kicker t-title">SDU COSS X 강원랜드 바이브 코딩 캠프</p>
+    <div class="head legged">
+      <h1>버스<br>탑승 확인</h1>
+      <div class="ghostbox">
+        <span class="ghost">check-in.</span>
+        <span class="legmark t-leg">가는 편</span>
+      </div>
+    </div>
+
+    <div class="legpick hidden" id="legpick">
+      <button type="button" data-leg="out">가는 편</button>
+      <button type="button" data-leg="back">오는 편</button>
+    </div>
+
+    <label for="phone">휴대폰 번호</label>
+    <input id="phone" class="big" type="tel" inputmode="numeric" autocomplete="tel" placeholder="010-0000-0000" maxlength="13">
+    <button id="go" class="primary" disabled>탑승 확인</button>
+    <p class="notice">버스에 탑승 완료한 뒤에 탑승 확인 버튼을 눌러 주세요.</p>
+    <p id="err" class="err hidden"></p>
+    <button id="req-open" class="primary hidden">탑승 명단 추가 등록/수정 요청</button>
+    <p class="note">번호가 명단과 다를 경우나 기존 조사시 탑승여부에 체크하지 않은 경우 인솔자에게 추가/수정 요청하세요.</p>
+
+    <div class="info hidden" id="info-box">
+      <div class="r hidden" id="info-bus"><span>차량 번호</span><b id="info-bus-v">—</b></div>
+      <div class="r hidden" id="info-place"><span>탑승 위치</span><b id="info-place-v">—</b></div>
+    </div>
+  </section>
+
+  <section id="req-view" class="hidden">
+    <p class="kicker t-title">SDU COSS X 강원랜드 바이브 코딩 캠프</p>
+    <div class="head"><h1>명단 추가<br>등록/수정 요청</h1><span class="ghost">request.</span></div>
+    <p class="lede">이름과 소속이 명단에 이미 있으면 번호 수정 요청으로, 없으면 명단 추가 요청으로 전달됩니다.</p>
+
+    <label for="r-name-in">이름</label>
+    <input id="r-name-in" type="text" placeholder="홍길동" autocomplete="name">
+    <label class="mt" for="r-phone-in">휴대폰 번호</label>
+    <input id="r-phone-in" type="tel" inputmode="numeric" placeholder="010-0000-0000" maxlength="13">
+    <label class="mt" for="r-note-sel">소속 · 팀명 (선택)</label>
+    <select id="r-note-sel">
+      <option value="">선택 안 함</option>
+      <option value="__custom">직접 입력하기</option>
+    </select>
+    <input id="r-note-in" type="text" placeholder="소속 · 팀명 입력" class="hidden" style="margin-top:8px">
+
+    <button id="req-send" class="primary hl">요청 보내기</button>
+    <button id="req-cancel" class="ghostbtn">돌아가기</button>
+    <p id="req-err" class="err hidden"></p>
+  </section>
+
+  <section id="done-view" class="hidden">
+    <p class="kicker t-title">SDU COSS X 강원랜드 바이브 코딩 캠프</p>
+    <div class="head"><h1>요청<br>진행 상황</h1><span class="ghost">request.</span></div>
+
+    <div class="step" id="step1">
+      <p class="st" id="done-kind">1 · 요청을 보냈습니다</p>
+      <p class="sn" id="done-name">—</p>
+      <p class="sm" id="done-msg"></p>
+    </div>
+
+    <div class="step on" id="step2">
+      <p class="st" id="wait-st">2 · 승인 대기 중</p>
+      <p class="sm" id="wait-msg">인솔자가 확인하면 아래 탑승 확인 버튼이 열립니다. 이 화면을 그대로 두고 기다려 주세요.</p>
+    </div>
+
+    <button id="done-checkin" class="primary" disabled>탑승 확인</button>
+    <p class="note" id="done-hint">승인되면 이 화면에서 바로 탑승 확인을 하실 수 있습니다.</p>
+    <a href="#" id="done-back" class="backlink">돌아가기</a>
+  </section>
+
+  <section id="closed-view" class="hidden">
+    <p class="kicker t-title">SDU COSS X 강원랜드 바이브 코딩 캠프</p>
+    <div class="head"><h1>지금은<br>확인 전입니다</h1><span class="ghost">on hold.</span></div>
+    <p class="lede">인솔자가 확인을 시작하면 이 화면에서 바로 진행할 수 있습니다.</p>
+    <button id="recheck" class="primary">다시 확인</button>
+  </section>
+
+  <section id="result-view" class="hidden">
+    <div class="card">
+      <p id="r-status" class="status">탑승 확인 완료</p>
+      <p id="r-name" class="who">—</p>
+      <div class="rule"></div>
+      <div class="meta"><span id="r-label">확인 시각</span><b id="r-time">--:--</b></div>
+      <div class="meta"><span id="r-leg">가는 편</span><span id="r-title"></span></div>
+    </div>
+    <div class="afterrow">
+      <a href="#" id="again" class="again">다른 번호로 확인하기</a>
+      <a href="#" id="cancel-in" class="again cancel">탑승 취소하기</a>
+    </div>
+  </section>
+
+</div>
+
+<div id="ask" class="mask hidden" role="dialog" aria-modal="true" aria-labelledby="ask-q">
+  <div class="dialog">
+    <p class="q" id="ask-q">버스에 탑승을<br>완료하셨습니까?</p>
+    <p class="s">자리에 앉으셨다면 "네"를 눌러 주세요.</p>
+    <div class="btns">
+      <button id="ask-no">아니요</button>
+      <button id="ask-yes" class="yes">네</button>
+    </div>
+  </div>
+</div>
+
+<div id="ask-cancel" class="mask hidden" role="dialog" aria-modal="true" aria-labelledby="ask-cancel-q">
+  <div class="dialog">
+    <p class="q" id="ask-cancel-q">탑승 처리를<br>취소하시겠습니까?</p>
+    <p class="s">취소하면 탑승 확인 기록이 지워집니다.</p>
+    <div class="btns">
+      <button id="ask-cancel-no">아니요</button>
+      <button id="ask-cancel-yes" class="yes">네</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
+const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
+const $ = (id) => document.getElementById(id);
+let STATE = { open:true, leg:"out", legs:["out"], title:"", bus_no:"", place:"" };
+let LEG = "out";               // 참가자가 지금 보고 있는 편
+let LAST = { phone:"", leg:"" }; // 방금 확인한 사람 (탑승 취소용)
+let pollTimer = null;
+
+async function rpc(fn, body){
+  const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    body: JSON.stringify(body || {})
+  });
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+const legLabel = (l) => l === "back" ? "오는 편" : "가는 편";
+const digits = (s) => (s||"").replace(/\D/g,"").slice(0,11);
+function pretty(d){
+  if(d.length < 4) return d;
+  if(d.length < 8) return d.slice(0,3)+"-"+d.slice(3);
+  return d.slice(0,3)+"-"+d.slice(3,7)+"-"+d.slice(7);
+}
+function autoFormat(el){
+  el.addEventListener("input", () => { el.value = pretty(digits(el.value)); });
+}
+
+const phone = $("phone"), go = $("go"), err = $("err"), ask = $("ask"), askCancel = $("ask-cancel");
+
+function showOnly(id){
+  ["form-view","req-view","done-view","closed-view","result-view"].forEach(v => {
+    $(v).classList.toggle("hidden", v !== id);
+  });
+  if(id !== "done-view") stopPoll();
+}
+function syncGo(){ go.disabled = digits(phone.value).length < 10; }
+
+function openLegs(){
+  if(Array.isArray(STATE.legs)) return STATE.legs;
+  return STATE.open ? [STATE.leg || "out"] : [];
+}
+
+function paintInfo(){
+  const bus = (STATE.bus_no || "").trim();
+  const place = (STATE.place || "").trim();
+  $("info-bus-v").textContent = bus;
+  $("info-place-v").textContent = place;
+  $("info-bus").classList.toggle("hidden", !bus);
+  $("info-place").classList.toggle("hidden", !place);
+  $("info-box").classList.toggle("hidden", !bus && !place);
+}
+
+function paint(){
+  const legs = openLegs();
+  document.querySelectorAll(".t-title").forEach(e => { if(STATE.title) e.textContent = STATE.title; });
+  document.querySelectorAll(".t-leg").forEach(e => e.textContent = legLabel(LEG));
+  $("legpick").classList.toggle("hidden", legs.length < 2);
+  $("legpick").querySelectorAll("button").forEach(b => {
+    b.classList.toggle("on", b.dataset.leg === LEG);
+  });
+  paintInfo();
+}
+
+// 운영자가 On 으로 켠 편만 참가자에게 보여 준다.
+function syncLeg(){
+  const legs = openLegs();
+  if(!legs.length) return;
+  if(legs.indexOf(LEG) < 0) LEG = legs.indexOf(STATE.leg) >= 0 ? STATE.leg : legs[0];
+}
+
+async function loadStatus(reset){
+  try{ STATE = await rpc("bus_status"); }catch(e){}
+  syncLeg();
+  paint();
+  const legs = openLegs();
+  if(reset){
+    showOnly(legs.length ? "form-view" : "closed-view");
+    syncGo();
+    return;
+  }
+  if(!legs.length && !$("form-view").classList.contains("hidden")) showOnly("closed-view");
+  else if(legs.length && !$("closed-view").classList.contains("hidden")){ showOnly("form-view"); syncGo(); }
+}
+
+async function loadGroups(){
+  let list = [];
+  try{ list = await rpc("bus_group_options"); }catch(e){}
+  const sel = $("r-note-sel");
+  const keep = sel.value;
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = ""; opt0.textContent = "선택 안 함";
+  sel.appendChild(opt0);
+  (list || []).forEach(g => {
+    const o = document.createElement("option");
+    o.value = g; o.textContent = g;
+    sel.appendChild(o);
+  });
+  const oc = document.createElement("option");
+  oc.value = "__custom"; oc.textContent = "직접 입력하기";
+  sel.appendChild(oc);
+  sel.value = keep || "";
+  if(sel.value !== keep) sel.value = "";
+}
+
+$("r-note-sel").addEventListener("change", () => {
+  const custom = $("r-note-sel").value === "__custom";
+  $("r-note-in").classList.toggle("hidden", !custom);
+  if(custom) $("r-note-in").focus();
+});
+function noteValue(){
+  const v = $("r-note-sel").value;
+  return v === "__custom" ? $("r-note-in").value.trim() : v;
+}
+
+$("legpick").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-leg]");
+  if(!b) return;
+  LEG = b.dataset.leg;
+  err.classList.add("hidden");
+  $("req-open").classList.add("hidden");
+  paint();
+});
+
+phone.addEventListener("input", () => {
+  phone.value = pretty(digits(phone.value));
+  syncGo();
+  err.classList.add("hidden");
+  $("req-open").classList.add("hidden");
+});
+phone.addEventListener("keydown", (e) => { if(e.key === "Enter" && !go.disabled) openAsk(); });
+go.addEventListener("click", openAsk);
+$("recheck").addEventListener("click", () => loadStatus(true));
+autoFormat($("r-phone-in"));
+
+function openAsk(){
+  if(digits(phone.value).length < 10) return;
+  err.classList.add("hidden");
+  ask.classList.remove("hidden");
+  phone.blur();
+  $("ask-yes").focus();
+}
+function closeAsk(){ ask.classList.add("hidden"); }
+
+$("ask-yes").addEventListener("click", () => { closeAsk(); submit(); });
+$("ask-no").addEventListener("click", () => { closeAsk(); });
+ask.addEventListener("click", (e) => { if(e.target === ask) closeAsk(); });
+
+function openCancelAsk(){
+  if(!LAST.phone) return;
+  askCancel.classList.remove("hidden");
+  $("ask-cancel-yes").focus();
+}
+function closeCancelAsk(){ askCancel.classList.add("hidden"); }
+
+$("cancel-in").addEventListener("click", (e) => { e.preventDefault(); openCancelAsk(); });
+$("ask-cancel-no").addEventListener("click", () => { closeCancelAsk(); });
+$("ask-cancel-yes").addEventListener("click", () => { closeCancelAsk(); cancelCheckIn(); });
+askCancel.addEventListener("click", (e) => { if(e.target === askCancel) closeCancelAsk(); });
+
+document.addEventListener("keydown", (e) => {
+  if(e.key !== "Escape") return;
+  if(!ask.classList.contains("hidden")) closeAsk();
+  if(!askCancel.classList.contains("hidden")) closeCancelAsk();
+});
+
+$("again").addEventListener("click", (e) => {
+  e.preventDefault();
+  phone.value = "";
+  LAST = { phone:"", leg:"" };
+  $("req-open").classList.add("hidden");
+  loadStatus(true);
+});
+
+$("done-back").addEventListener("click", (e) => {
+  e.preventDefault();
+  stopPoll();
+  $("req-open").classList.add("hidden");
+  err.classList.add("hidden");
+  showOnly("form-view");
+  syncGo();
+});
+
+$("req-open").addEventListener("click", () => {
+  $("r-phone-in").value = pretty(digits(phone.value));
+  $("req-err").classList.add("hidden");
+  loadGroups();
+  showOnly("req-view");
+  $("r-name-in").focus();
+});
+$("req-cancel").addEventListener("click", () => { showOnly("form-view"); syncGo(); });
+
+function stopPoll(){ if(pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
+
+function setWaiting(){
+  $("step2").classList.add("on");
+  $("wait-st").textContent = "2 · 승인 대기 중";
+  $("wait-msg").textContent = "인솔자가 확인하면 아래 탑승 확인 버튼이 열립니다. 이 화면을 그대로 두고 기다려 주세요.";
+  $("done-checkin").disabled = true;
+  $("done-checkin").classList.remove("hl");
+  $("done-hint").textContent = "승인되면 이 화면에서 바로 탑승 확인을 하실 수 있습니다.";
+}
+
+function setApproved(){
+  stopPoll();
+  $("step2").classList.remove("on");
+  $("wait-st").textContent = "2 · 승인 완료";
+  $("wait-msg").textContent = "명단에 반영되었습니다.";
+  const b = $("done-checkin");
+  b.disabled = false;
+  b.classList.add("hl");
+  $("done-hint").textContent = "버스에 탑승 완료한 뒤에 눌러 주세요.";
+}
+
+function setRejected(){
+  stopPoll();
+  $("step2").classList.remove("on");
+  $("wait-st").textContent = "2 · 요청이 반려됨";
+  $("wait-msg").textContent = "인솔자가 요청을 반려했습니다. 현장의 인솔자에게 직접 문의해 주세요.";
+  $("done-checkin").disabled = true;
+  $("done-checkin").classList.remove("hl");
+}
+
+async function checkReq(ph){
+  let d;
+  try{ d = await rpc("bus_request_status", { p_phone: ph, p_leg: LEG }); }catch(e){ return; }
+  if(d.state === "approved") setApproved();
+  else if(d.state === "rejected") setRejected();
+}
+
+function startPoll(ph){
+  stopPoll();
+  checkReq(ph);
+  pollTimer = setInterval(() => checkReq(ph), 5000);
+}
+
+$("done-checkin").addEventListener("click", () => {
+  if($("done-checkin").disabled) return;
+  openAsk();
+});
+
+$("req-send").addEventListener("click", async () => {
+  const name = $("r-name-in").value.trim();
+  const ph = digits($("r-phone-in").value);
+  const note = noteValue();
+  const e = $("req-err");
+  const show = (m) => { e.textContent = m; e.classList.remove("hidden"); };
+  if(!name){ show("이름을 넣어 주세요."); return; }
+  if(ph.length < 10){ show("휴대폰 번호를 다시 확인해 주세요."); return; }
+  const btn = $("req-send");
+  btn.disabled = true; btn.textContent = "보내는 중…";
+  try{
+    const d = await rpc("bus_request_add", { p_name: name, p_phone: ph, p_note: note, p_leg: LEG });
+    if(d.status === "ok"){
+      const fix = d.kind === "fix";
+      $("done-kind").textContent = fix ? "1 · 번호 수정 요청을 보냈습니다" : "1 · 명단 추가 요청을 보냈습니다";
+      $("done-msg").textContent = fix
+        ? "명단에 있는 분이라 번호를 바꿔달라고 전달했습니다."
+        : "입력하신 내용으로 명단 추가를 요청했습니다.";
+      $("done-name").textContent = name + (note ? " · " + note : "");
+      phone.value = pretty(ph);
+      syncGo();
+      $("r-name-in").value = ""; $("r-note-in").value = "";
+      setWaiting();
+      showOnly("done-view");
+      startPoll(ph);
+    }else if(d.status === "exists"){
+      phone.value = pretty(ph); syncGo();
+      show("이미 명단에 있는 번호입니다. 돌아가서 탑승 확인을 눌러 주세요.");
+    }else if(d.status === "dup"){
+      phone.value = pretty(ph); syncGo();
+      $("done-kind").textContent = "1 · 이미 접수된 요청입니다";
+      $("done-msg").textContent = "같은 번호로 보낸 요청이 이미 있습니다.";
+      $("done-name").textContent = name + (note ? " · " + note : "");
+      setWaiting();
+      showOnly("done-view");
+      startPoll(ph);
+    }else{
+      show("요청을 보내지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+  }catch(err2){
+    show("연결이 끊겼습니다. 잠시 후 다시 눌러 주세요.");
+  }finally{
+    btn.disabled = false; btn.textContent = "요청 보내기";
+  }
+});
+
+function showError(msg){ err.textContent = msg; err.classList.remove("hidden"); }
+
+function showStub(kind, name, time, label, leg){
+  const s = $("r-status");
+  if(kind === "go") s.textContent = "탑승 확인 완료";
+  else if(kind === "cancelled") s.textContent = "탑승 취소 완료";
+  else s.textContent = "이미 확인된 번호";
+  s.className = "status" + (kind === "go" ? "" : " stop");
+  $("r-name").textContent = name;
+  $("r-label").textContent = label;
+  $("r-time").textContent = time;
+  $("r-leg").textContent = legLabel(leg);
+  $("r-title").textContent = STATE.title || "";
+  // 취소한 뒤에는 더 취소할 것이 없다.
+  $("cancel-in").classList.toggle("hidden", kind === "cancelled");
+  showOnly("result-view");
+}
+
+async function submit(){
+  const d = digits(phone.value);
+  const onDone = !$("done-view").classList.contains("hidden");
+  const btn = onDone ? $("done-checkin") : go;
+  btn.disabled = true; btn.textContent = "확인 중…";
+  try{
+    const data = await rpc("bus_check_in", { p_phone: d, p_leg: LEG });
+    if(data.status === "ok"){
+      LAST = { phone: d, leg: data.leg || LEG };
+      showStub("go", data.name, data.at, "확인 시각", data.leg);
+    }else if(data.status === "already"){
+      LAST = { phone: d, leg: data.leg || LEG };
+      showStub("already", data.name, data.at, "먼저 확인된 시각", data.leg);
+    }else if(data.status === "closed"){
+      STATE.open = false; STATE.legs = [];
+      showOnly("closed-view");
+    }else if(data.status === "not_found"){
+      if(onDone){
+        setWaiting();
+        startPoll(d);
+      }else{
+        showError("이번 " + legLabel(data.leg) + " 명단에서 이 번호를 찾지 못했습니다. 번호를 다시 확인하시거나, 아래에서 추가/수정을 요청해 주세요.");
+        $("req-open").classList.remove("hidden");
+      }
+    }else{
+      if(!onDone) showError("번호를 다시 확인해 주세요.");
+    }
+  }catch(e){
+    if(!onDone) showError("연결이 끊겼습니다. 잠시 후 다시 눌러 주세요.");
+  }finally{
+    btn.textContent = "탑승 확인";
+    if(onDone){ btn.disabled = false; }
+    else{ syncGo(); }
+  }
+}
+
+async function cancelCheckIn(){
+  if(!LAST.phone) return;
+  const link = $("cancel-in");
+  const keep = link.textContent;
+  link.textContent = "취소 중…";
+  try{
+    const data = await rpc("bus_check_out", { p_phone: LAST.phone, p_leg: LAST.leg });
+    if(data.status === "ok" || data.status === "not_boarded"){
+      showStub("cancelled", data.name, data.at || "--:--", "취소 시각", data.leg || LAST.leg);
+      LAST = { phone:"", leg:"" };
+    }else if(data.status === "closed"){
+      STATE.open = false; STATE.legs = [];
+      showOnly("closed-view");
+    }else{
+      alert("탑승 취소를 처리하지 못했습니다. 인솔자에게 말씀해 주세요.");
+    }
+  }catch(e){
+    alert("연결이 끊겼습니다. 잠시 후 다시 눌러 주세요.");
+  }finally{
+    link.textContent = keep;
+  }
+}
+
+loadStatus(true);
+loadGroups();
+setInterval(() => loadStatus(false), 20000);
+</script>
+</body>
+</html>

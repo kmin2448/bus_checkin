@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>명단 · 관리</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F3F2EF; --ink:#0A0C0F; --gray:#6B7280; --btn:#CBD3DD; --btnbg:#EDF1F9;
+    --hair:#E7E5DE; --navy:#1E3A5F;
+    --blue:#2F6BFF; --warn:#C0392B; --go:#127A43;
+    --r:5px; --shadow:0 6px 20px rgba(30,40,60,.07);
+    --mono: ui-monospace,"SFMono-Regular","Menlo",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100dvh;color:var(--ink);background:var(--bg);
+    font-family:"Pretendard Variable",Pretendard,-apple-system,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:30px 16px calc(44px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:560px;margin:0 auto}
+  .kicker{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--gray)}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px}
+  h1{margin:0;font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.045em}
+  .ghost{font-size:19px;font-weight:800;letter-spacing:-.04em;color:#E2E0D9;white-space:nowrap;padding-top:6px}
+  h2{font-size:13px;font-weight:700;margin:30px 0 10px;color:var(--gray);text-align:center}
+  input,button{font-family:inherit}
+  input[type=text],input[type=password]{width:100%;height:44px;padding:0 13px;border:1px solid var(--btn);
+    border-radius:var(--r);background:#fff;font-size:15px;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  button{height:44px;padding:0 12px;font-size:14px;font-weight:700;color:#000;background:var(--btnbg);
+    border:1px solid var(--btn);border-radius:var(--r);cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
+  button.small{font-size:13px;padding:0 8px}
+  button.danger{color:var(--warn)}
+  button.hl{background:#fff;border:1.5px solid var(--navy);color:var(--navy);font-weight:800}
+  button:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .linkbtn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;
+    border:1px solid var(--btn);border-radius:var(--r);background:var(--btnbg);color:#000;
+    font-weight:700;font-size:14px;text-decoration:none;white-space:nowrap}
+  .row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:12px}
+  .row > button,.row > .linkbtn{flex:1 1 0;min-width:0}
+  .row > input{flex:2 1 0;min-width:0}
+  .tabs{display:flex;gap:8px;margin-bottom:10px}
+  .tabs button{flex:1 1 0;min-width:0;color:var(--gray);font-weight:700;font-size:15px}
+  .tabs button.on{background:#fff;color:#000;font-weight:800;box-shadow:inset 0 -3px 0 var(--blue)}
+  .summary{background:#fff;border:1px solid var(--hair);border-radius:var(--r);padding:14px;
+    font-size:14px;font-weight:700;margin-top:12px;text-align:center}
+  .summary span{display:block;font-weight:500;color:var(--gray);font-size:12px;margin-top:4px}
+  .drop{display:block;background:#fff;border:1px dashed var(--btn);border-radius:var(--r);
+    padding:20px;text-align:center;cursor:pointer}
+  .drop.over{background:#F2F6FF}
+  .drop b{display:block;font-size:15px;font-weight:700}
+  .drop span{font-size:13px;color:var(--gray)}
+  #file{display:none}
+  .grid{display:grid;grid-template-columns:1fr 1.35fr .8fr 34px;gap:6px;align-items:center}
+  .colhead{font-size:11px;font-weight:700;color:var(--gray);margin:14px 0 6px;padding:0 2px}
+  .entry{margin-bottom:6px}
+  .entry input{width:100%;min-width:0;height:44px;padding:0 8px;font-size:16px;color:var(--ink);
+    border:1px solid var(--btn);border-radius:var(--r);background:#fff}
+  .entry input.ph{font-family:var(--mono);font-size:15px;text-align:center}
+  .entry .del{padding:0;font-size:15px;font-weight:400;color:var(--gray)}
+  .extrahead{margin-top:30px;border-top:1px solid var(--hair);padding-top:18px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
+  .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 6px 0 11px;
+    border:1px solid var(--btn);border-radius:var(--r);background:#fff;font-size:13px;font-weight:700}
+  .chip button{height:24px;width:24px;padding:0;border:0;background:transparent;color:var(--gray);font-size:13px}
+  .hint{font-size:13px;color:var(--gray);line-height:1.7;margin:10px 0 0;text-align:center}
+  .hint.good{color:var(--go);font-weight:600}
+  .hint.bad{color:var(--warn);font-weight:600}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="gate">
+    <p class="kicker">MANAGE</p>
+    <div class="head"><h1>관리자<br>확인</h1><span class="ghost">staff only.</span></div>
+    <input id="code" type="password" placeholder="운영 코드" autocomplete="off">
+    <div class="row"><button id="enter" class="hl">열기</button></div>
+    <p id="gate-msg" class="hint"></p>
+  </section>
+
+  <section id="panel" class="hidden">
+    <p class="kicker" id="title-band">행사</p>
+    <div class="head"><h1>명단 · 관리</h1><span class="ghost">manage.</span></div>
+
+    <div class="tabs">
+      <button id="tab-out" class="on">가는 편</button>
+      <button id="tab-back">오는 편</button>
+    </div>
+    <p class="hint" style="margin-top:0">아래 작업은 지금 선택한 편에만 적용됩니다.</p>
+    <div class="summary" id="summary">—<span id="summary-sub">현재 명단 현황</span></div>
+
+    <h2 id="paste-head">명단 넣기</h2>
+    <label class="drop" id="drop" for="file">
+      <b>엑셀 파일 열기</b>
+      <span>xlsx · xls · csv — 여기로 끌어다 놓아도 됩니다</span>
+    </label>
+    <input id="file" type="file" accept=".xlsx,.xls,.csv">
+    <p id="file-msg" class="hint"></p>
+
+    <div class="grid colhead"><span>이름</span><span>휴대폰 번호</span><span>조 (선택)</span><span></span></div>
+    <div id="rows"></div>
+    <div class="row">
+      <button id="addrow" class="small">줄 추가</button>
+      <button id="clearrows" class="small">입력 지우기</button>
+    </div>
+    <p class="hint" id="rowcount"></p>
+    <p class="hint">엑셀에서 여러 줄을 복사해 이름 칸에 붙여넣으면 칸이 자동으로 채워집니다.</p>
+
+    <div class="row">
+      <button id="add" class="hl">명단 추가</button>
+      <button id="replace">명단 덮어쓰기</button>
+      <button id="copy">반대 편 복사</button>
+    </div>
+
+    <div class="row extrahead"><button id="extra-toggle">추가 설정 열기</button></div>
+
+    <div id="extra" class="hidden">
+      <h2>차량 · 탑승 위치</h2>
+      <input id="bus-in" type="text" placeholder="차량 번호 (예: 12가 3456)">
+      <input id="place-in" type="text" placeholder="탑승 위치 (예: 강원대 백녕관 앞)" style="margin-top:8px">
+      <div class="row"><button id="save-info" class="small">차량 · 탑승 위치 저장</button></div>
+      <p class="hint">입력하면 참가자 탑승 확인 화면 맨 아래에 표시됩니다. 비워 두면 표시되지 않습니다.</p>
+
+      <h2>소속 · 팀명</h2>
+      <div class="row">
+        <input id="group-in" type="text" placeholder="예: 운영진">
+        <button id="group-add" class="small">등록</button>
+      </div>
+      <div class="chips" id="group-list"></div>
+      <p class="hint">참가자 요청 화면의 선택지입니다. 명단에 이미 있는 소속은 자동으로 포함됩니다.</p>
+
+      <h2>정리</h2>
+      <div class="row">
+        <button id="reset" class="small">기록 리셋</button>
+        <button id="purge" class="small danger">명단 삭제</button>
+        <button id="purge-all" class="small danger">전체 삭제</button>
+      </div>
+      <p class="hint">기록 리셋·명단 삭제는 지금 선택한 편에만 적용됩니다. 행사가 끝나면 전체 삭제로 번호를 남기지 마세요.</p>
+
+      <h2>설정</h2>
+      <input id="title-input" type="text" placeholder="행사 이름">
+      <div class="row"><button id="save-title" class="small">행사 이름 저장</button></div>
+      <input id="new-code" type="text" placeholder="새 운영 코드" style="margin-top:12px">
+      <div class="row"><button id="save-code" class="small">운영 코드 변경</button></div>
+    </div>
+
+    <div class="row" style="margin-top:26px"><a class="linkbtn" href="admin.html">탑승 현황으로 돌아가기</a></div>
+  </section>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
+const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
+const $ = (id) => document.getElementById(id);
+let CODE = "", LEG = "out";
+
+async function call(fn, body){
+  const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    body: JSON.stringify(body || {})
+  });
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function rpc(action, payload){
+  const body = Object.assign({ leg: LEG }, payload || {});
+  return call("bus_admin", { p_code: CODE, p_action: action, p_payload: body });
+}
+
+const legLabel = (l) => l === "back" ? "오는 편" : "가는 편";
+
+function fixPhone(s){
+  let d = String(s == null ? "" : s).replace(/\D/g, "");
+  if(d.length >= 11 && d.slice(0,2) === "82") d = "0" + d.slice(2);
+  if((d.length === 9 || d.length === 10) && d[0] !== "0") d = "0" + d;
+  return d;
+}
+const isPhone = (d) => d.length === 10 || d.length === 11;
+
+function fmtPhone(d){
+  if(!d) return "";
+  if(d.length === 11) return d.slice(0,3)+"-"+d.slice(3,7)+"-"+d.slice(7);
+  if(d.length === 10) return d.slice(0,3)+"-"+d.slice(3,6)+"-"+d.slice(6);
+  return d;
+}
+
+function cellsToRow(cells){
+  cells = cells.map(c => String(c == null ? "" : c).trim());
+  let pi = -1, phone = "";
+  for(let i=0;i<cells.length;i++){
+    const d = fixPhone(cells[i]);
+    if(isPhone(d)){ pi = i; phone = d; break; }
+  }
+  if(pi < 0) return null;
+  let name = "", note = "";
+  for(let i=0;i<cells.length;i++){
+    if(i === pi || !cells[i]) continue;
+    if(!name && !/^\d{1,4}$/.test(cells[i])){ name = cells[i]; continue; }
+    if(name) note = note ? note + " " + cells[i] : cells[i];
+  }
+  return name ? { name: name, phone: phone, note: note } : null;
+}
+
+function parseText(text){
+  return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    .map(l => cellsToRow(l.split(/\t|,|\s{2,}/)))
+    .filter(Boolean);
+}
+
+const rowsEl = $("rows");
+
+function addRow(name, phone, note, focus){
+  const div = document.createElement("div");
+  div.className = "grid entry";
+  const a = document.createElement("input");
+  a.placeholder = "홍길동"; a.value = name || "";
+  const b = document.createElement("input");
+  b.className = "ph"; b.type = "tel"; b.inputMode = "numeric";
+  b.placeholder = "010-1234-5678"; b.value = phone || "";
+  const c = document.createElement("input");
+  c.placeholder = "A조"; c.value = note || "";
+  const del = document.createElement("button");
+  del.className = "del"; del.textContent = "✕"; del.title = "줄 삭제";
+  del.onclick = () => { div.remove(); ensureBlank(); countRows(); };
+  [a,b,c].forEach(i => i.addEventListener("input", () => { ensureBlank(); countRows(); }));
+  div.appendChild(a); div.appendChild(b); div.appendChild(c); div.appendChild(del);
+  rowsEl.appendChild(div);
+  if(focus) a.focus();
+  return div;
+}
+
+function entries(){ return Array.from(rowsEl.querySelectorAll(".entry")); }
+
+function rowValues(div){
+  const i = div.querySelectorAll("input");
+  return { name: i[0].value.trim(), phone: fixPhone(i[1].value), note: i[2].value.trim() };
+}
+
+function ensureBlank(){
+  const list = entries();
+  if(!list.length){ addRow(); return; }
+  const v = rowValues(list[list.length - 1]);
+  if(v.name || v.phone || v.note) addRow();
+}
+
+function getRows(){
+  return entries().map(rowValues).filter(v => v.name && isPhone(v.phone));
+}
+
+function countRows(){
+  const all = entries().map(rowValues).filter(v => v.name || v.phone || v.note);
+  const ok = all.filter(v => v.name && isPhone(v.phone));
+  $("rowcount").textContent = all.length
+    ? ok.length + "명 입력됨" + (all.length > ok.length ? " · " + (all.length - ok.length) + "줄은 이름이나 번호가 비어 있음" : "")
+    : "";
+}
+
+function setRows(list){
+  rowsEl.innerHTML = "";
+  list.forEach(r => addRow(r.name, fmtPhone(r.phone), r.note));
+  addRow();
+  countRows();
+}
+
+$("addrow").onclick = () => addRow("", "", "", true);
+$("clearrows").onclick = () => { setRows([]); $("file-msg").textContent = ""; };
+
+$("extra-toggle").onclick = () => {
+  const box = $("extra");
+  const willOpen = box.classList.contains("hidden");
+  box.classList.toggle("hidden", !willOpen);
+  $("extra-toggle").textContent = willOpen ? "추가 설정 닫기" : "추가 설정 열기";
+  if(willOpen){ loadGroups(); loadInfo(); }
+};
+
+async function loadInfo(){
+  try{
+    const s = await call("bus_status");
+    if(document.activeElement !== $("bus-in")) $("bus-in").value = s.bus_no || "";
+    if(document.activeElement !== $("place-in")) $("place-in").value = s.place || "";
+  }catch(e){}
+}
+
+$("save-info").onclick = async () => {
+  const d = await call("bus_set_info", {
+    p_code: CODE, p_bus: $("bus-in").value.trim(), p_place: $("place-in").value.trim()
+  }).catch(() => null);
+  alert(d && d.status === "ok" ? "저장했습니다." : "저장하지 못했습니다.");
+};
+
+async function loadGroups(){
+  let d;
+  try{ d = await rpc("groups"); }catch(e){ return; }
+  const box = $("group-list");
+  box.innerHTML = "";
+  const list = (d && d.registered) || [];
+  if(!list.length){
+    const p = document.createElement("span");
+    p.className = "hint"; p.style.margin = "0";
+    p.textContent = "직접 등록한 소속이 아직 없습니다.";
+    box.appendChild(p);
+    return;
+  }
+  list.forEach(g => {
+    const c = document.createElement("span"); c.className = "chip";
+    c.appendChild(document.createTextNode(g));
+    const x = document.createElement("button");
+    x.textContent = "✕"; x.title = "삭제";
+    x.onclick = async () => { await rpc("group_del", {name:g}); loadGroups(); };
+    c.appendChild(x);
+    box.appendChild(c);
+  });
+}
+
+$("group-add").onclick = async () => {
+  const v = $("group-in").value.trim();
+  if(!v) return;
+  await rpc("group_add", { name: v });
+  $("group-in").value = "";
+  loadGroups();
+};
+$("group-in").addEventListener("keydown", e => { if(e.key === "Enter") $("group-add").click(); });
+
+rowsEl.addEventListener("paste", (e) => {
+  const text = (e.clipboardData || window.clipboardData).getData("text");
+  if(!text || !/\n|\t/.test(text)) return;
+  e.preventDefault();
+  const parsed = parseText(text);
+  if(!parsed.length) return;
+  setRows(getRows().concat(parsed));
+  $("file-msg").className = "hint good";
+  $("file-msg").textContent = parsed.length + "명을 붙여넣었습니다. 확인 후 넣기 버튼을 누르세요.";
+});
+
+async function readFile(f){
+  const msg = $("file-msg");
+  msg.className = "hint";
+  msg.textContent = f.name + " 읽는 중…";
+  try{
+    const buf = await f.arrayBuffer();
+    const wb = XLSX.read(buf, { type:"array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const grid = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
+    const rows = grid.map(cellsToRow).filter(Boolean);
+    if(!rows.length){
+      msg.className = "hint bad";
+      msg.textContent = "이름과 휴대폰 번호를 찾지 못했습니다. 첫 시트에 두 열이 있는지 확인해 주세요.";
+      return;
+    }
+    setRows(rows);
+    msg.className = "hint good";
+    msg.textContent = f.name + " — " + rows.length + "명을 읽었습니다. 칸을 확인하고 넣기 버튼을 누르세요.";
+  }catch(e){
+    msg.className = "hint bad";
+    msg.textContent = "파일을 열지 못했습니다. xlsx로 저장해 다시 시도해 주세요. (csv는 UTF-8로 저장)";
+  }
+}
+
+$("file").addEventListener("change", (e) => {
+  const f = e.target.files[0];
+  if(f) readFile(f);
+  e.target.value = "";
+});
+const drop = $("drop");
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, (e) => {
+  e.preventDefault(); drop.classList.add("over");
+}));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, (e) => {
+  e.preventDefault(); drop.classList.remove("over");
+}));
+drop.addEventListener("drop", (e) => {
+  const f = e.dataTransfer && e.dataTransfer.files[0];
+  if(f) readFile(f);
+});
+
+function render(d){
+  $("title-band").textContent = d.title || "행사";
+  if(document.activeElement !== $("title-input")) $("title-input").value = d.title || "";
+  $("tab-out").classList.toggle("on", LEG === "out");
+  $("tab-back").classList.toggle("on", LEG === "back");
+  $("paste-head").textContent = legLabel(LEG) + " 명단 넣기";
+
+  const t = d.totals || {};
+  const c = d.collecting || { out: d.open, back: d.open };
+  const line = ["out","back"].map(k => {
+    const v = t[k];
+    return legLabel(k) + " " + (v ? v.done + "/" + v.all : "0/0") + "명 · 취합 " + (c[k] ? "On" : "Off");
+  }).join("   ·   ");
+  $("summary").firstChild.nodeValue = line;
+  $("summary-sub").textContent = "지금 편집 중: " + legLabel(LEG);
+}
+
+async function load(){
+  try{
+    const d = await rpc("list");
+    if(d.status === "ok") render(d);
+  }catch(e){}
+}
+
+async function setLeg(leg){
+  LEG = leg;
+  await rpc("set_leg", { leg: leg });
+  load();
+}
+$("tab-out").onclick = () => setLeg("out");
+$("tab-back").onclick = () => setLeg("back");
+
+async function upload(mode){
+  const rows = getRows();
+  if(!rows.length){ alert("이름과 휴대폰 번호를 넣어 주세요."); return; }
+  if(mode === "replace" && !confirm(legLabel(LEG) + " 명단을 " + rows.length + "명으로 덮어씁니다. 기존 명단과 탑승 기록은 지워집니다.")) return;
+  await rpc("upload", { mode: mode, rows: rows });
+  setRows([]);
+  $("file-msg").className = "hint good";
+  $("file-msg").textContent = rows.length + "명을 " + legLabel(LEG) + " 명단에 넣었습니다.";
+  load();
+}
+
+$("add").onclick = () => upload("add");
+$("replace").onclick = () => upload("replace");
+$("copy").onclick = async () => {
+  const other = LEG === "out" ? "오는 편" : "가는 편";
+  if(!confirm(legLabel(LEG) + " 명단을 " + other + "으로 복사합니다. 탑승 기록은 복사되지 않습니다.")) return;
+  await rpc("copy_leg");
+  load();
+};
+$("reset").onclick = async () => {
+  if(confirm(legLabel(LEG) + " 탑승 기록을 모두 지웁니다. 명단은 남습니다.")){ await rpc("reset_all"); load(); }
+};
+$("purge").onclick = async () => {
+  if(confirm(legLabel(LEG) + " 명단과 기록을 삭제합니다. 되돌릴 수 없습니다.")){ await rpc("purge", {scope:"leg"}); load(); }
+};
+$("purge-all").onclick = async () => {
+  if(confirm("가는 편·오는 편 명단과 기록을 전부 삭제합니다. 되돌릴 수 없습니다.")){ await rpc("purge", {scope:"all"}); load(); }
+};
+$("save-title").onclick = async () => { await rpc("set_title", { title: $("title-input").value.trim() }); load(); };
+$("save-code").onclick = async () => {
+  const c = $("new-code").value.trim();
+  if(c.length < 6){ alert("6자 이상으로 정해 주세요."); return; }
+  await rpc("set_code", { code: c });
+  CODE = c; localStorage.setItem("bus_admin_code", c);
+  $("new-code").value = "";
+  alert("운영 코드를 바꿨습니다.");
+};
+
+async function enter(){
+  CODE = $("code").value.trim();
+  if(!CODE) return;
+  const d = await rpc("list").catch(() => null);
+  if(!d || d.status !== "ok"){ $("gate-msg").textContent = "코드가 맞지 않습니다."; return; }
+  LEG = d.active_leg || "out";
+  localStorage.setItem("bus_admin_code", CODE);
+  $("gate").classList.add("hidden");
+  $("panel").classList.remove("hidden");
+  setRows([]);
+  render(d);
+}
+$("enter").onclick = enter;
+$("code").addEventListener("keydown", e => { if(e.key === "Enter") enter(); });
+
+const saved = new URLSearchParams(location.search).get("code") || localStorage.getItem("bus_admin_code");
+if(saved){ $("code").value = saved; enter(); }
+</script>
+</body>
+</html>
