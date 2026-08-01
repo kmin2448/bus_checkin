@@ -130,6 +130,17 @@
     box-shadow:0 0 0 3px rgba(30,58,95,.14)}
   .cnt{margin:6px 0 0;font-size:12px;color:var(--gray);text-align:right}
   .cnt b{font-family:var(--mono);font-weight:600;color:var(--ink)}
+  /* 받는 사람 알약: ✕ 를 누르면 이번 발송에서만 뺀다. (명단은 그대로) */
+  .rcpts{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}
+  .rc{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 4px 0 12px;
+    border:1px solid var(--btn);border-radius:16px;background:#fff;
+    font-size:13px;font-weight:700;color:var(--ink)}
+  .rc button{height:24px;width:24px;padding:0;border:0;border-radius:50%;background:transparent;
+    color:var(--gray);font-size:12px;font-weight:700;line-height:1}
+  .rc.off{background:var(--bg);border-style:dashed;color:#A7ADB6;cursor:pointer}
+  .rc.off span{text-decoration:line-through}
+  .rc.off button{color:#A7ADB6}
+  .rchint{margin:0 0 6px;font-size:12px;color:var(--gray)}
   .batch{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--hair)}
   .batch:first-child{border-top:0}
   .batch .bi{flex:1;min-width:0}
@@ -237,6 +248,8 @@
     </select>
 
     <label class="fld" id="sms-bh">받는 사람</label>
+    <p class="rchint">✕ 를 누르면 이번 문자에서만 빠집니다. 명단은 바뀌지 않고, 다시 누르면 되돌아옵니다.</p>
+    <div class="rcpts" id="sms-rcpts"></div>
     <div id="sms-batches"></div>
 
     <p class="hint" style="text-align:left">
@@ -490,6 +503,7 @@ LEGS.forEach(leg => {
    그래서 운영자 본인 번호로 나가고, 발신번호 등록이나 API 키가 필요 없다. */
 let SMS_CHUNK = 20;
 let SMS_TPLS = [], SMS_ROWS = [], SMS_GROUP = "";
+let SMS_EX = new Set();   // 이번 발송에서만 제외한 사람(전화번호). 명단에는 손대지 않는다.
 
 async function smsRpc(action, payload){
   const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/bus_sms_admin", {
@@ -533,11 +547,39 @@ function smsCount(){
     : "내용을 입력하면 글자 수가 표시됩니다.";
 }
 
+// 발송 대상 = 전체에서 제외한 사람을 뺀 나머지.
+function smsTargets(){ return SMS_ROWS.filter(r => !SMS_EX.has(r.phone)); }
+
 function smsBatches(){
-  const rows = SMS_ROWS;
+  const rows = smsTargets();
   const out = [];
   for(let i = 0; i < rows.length; i += SMS_CHUNK) out.push(rows.slice(i, i + SMS_CHUNK));
   return out;
+}
+
+// 받는 사람을 알약으로 늘어놓는다. ✕ 로 빼고, 흐려진 알약을 누르면 되돌린다.
+function paintRcpts(){
+  const box = $("sms-rcpts");
+  box.innerHTML = "";
+  SMS_ROWS.forEach(r => {
+    const off = SMS_EX.has(r.phone);
+    const pill = document.createElement("span");
+    pill.className = "rc" + (off ? " off" : "");
+    const nm = document.createElement("span");
+    nm.textContent = r.name;
+    const x = document.createElement("button");
+    x.textContent = off ? "+" : "✕";
+    x.title = off ? r.name + " 다시 넣기" : r.name + " 이번 문자에서 빼기";
+    pill.appendChild(nm); pill.appendChild(x);
+    const flip = () => {
+      if(SMS_EX.has(r.phone)) SMS_EX.delete(r.phone);
+      else SMS_EX.add(r.phone);
+      paintRcpts(); smsHead(); paintBatches();
+    };
+    x.onclick = flip;
+    if(off) pill.onclick = (e) => { if(e.target !== x) flip(); };
+    box.appendChild(pill);
+  });
 }
 
 // 고른 인원 수를 넘으면 그 수만큼 끊어서 묶음마다 따로 연다.
@@ -547,10 +589,12 @@ function paintBatches(){
   const parts = smsBatches();
   const text = $("sms-body").value;
 
-  if(!SMS_ROWS.length){
+  if(!smsTargets().length){
     const p = document.createElement("p");
     p.className = "hint"; p.style.margin = "0"; p.style.textAlign = "left";
-    p.textContent = "이 소속에는 번호가 있는 사람이 없습니다.";
+    p.textContent = SMS_ROWS.length
+      ? "모두 제외했습니다. 보낼 사람을 다시 넣어 주세요."
+      : "이 소속에는 번호가 있는 사람이 없습니다.";
     box.appendChild(p);
     return;
   }
@@ -651,9 +695,11 @@ $("sms-del").onclick = async () => {
 };
 
 function smsHead(){
-  const n = SMS_ROWS.length;
+  const n = smsTargets().length;
+  const ex = SMS_EX.size;
   const parts = Math.ceil(n / SMS_CHUNK);
   $("sms-sub").textContent = legLabel(LEG) + " · " + n + "명" +
+    (ex ? " (" + ex + "명 제외)" : "") +
     (parts > 1 ? " · 한 번에 " + SMS_CHUNK + "명씩 " + parts + "번에 나눠 보냅니다" : "");
   $("sms-bh").textContent = parts > 1 ? "받는 사람 — " + parts + "개 묶음" : "받는 사람";
 }
@@ -667,12 +713,14 @@ $("sms-chunk").addEventListener("change", () => {
 function openSms(group, rows, chunk){
   SMS_GROUP = group;
   SMS_ROWS = (rows || []).filter(r => r.phone);
+  SMS_EX = new Set();   // 창을 새로 열면 제외 목록은 초기화
   if(chunk) $("sms-chunk").value = String(chunk);
   SMS_CHUNK = parseInt($("sms-chunk").value, 10) || 20;
   $("sms-title").textContent = "문자 보내기 — " + group;
   smsHead();
   $("sms-modal").classList.remove("hidden");
   smsCount();
+  paintRcpts();
   paintBatches();
   loadTemplates($("sms-tpl").value);
 }
