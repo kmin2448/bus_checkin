@@ -243,10 +243,7 @@
       버튼을 누르면 휴대폰 문자 앱이 열리고 받는 사람과 내용이 채워집니다.
       마지막 <b>보내기는 문자 앱에서 직접</b> 눌러 주세요. 운영자 본인 번호로 나갑니다.
     </p>
-    <div class="row">
-      <button id="sms-copy-body" class="small">내용 복사</button>
-      <button id="sms-close">닫기</button>
-    </div>
+    <div class="row"><button id="sms-close">닫기</button></div>
   </div>
 </div>
 
@@ -528,23 +525,6 @@ function smsBytes(s){
   return n;
 }
 
-function copyText(text, btn){
-  const done = () => {
-    const keep = btn.textContent;
-    btn.textContent = "복사됨";
-    setTimeout(() => { btn.textContent = keep; }, 1200);
-  };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(text).then(done, () => alert(text));
-    return;
-  }
-  const ta = document.createElement("textarea");
-  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-  document.body.appendChild(ta); ta.select();
-  try{ document.execCommand("copy"); done(); }catch(e){ alert(text); }
-  document.body.removeChild(ta);
-}
-
 function smsCount(){
   const v = $("sms-body").value;
   const b = smsBytes(v);
@@ -669,8 +649,6 @@ $("sms-del").onclick = async () => {
   try{ await smsRpc("del", { id: cur.id }); }catch(e){}
   await loadTemplates("");
 };
-
-$("sms-copy-body").onclick = () => copyText($("sms-body").value, $("sms-copy-body"));
 
 function smsHead(){
   const n = SMS_ROWS.length;
