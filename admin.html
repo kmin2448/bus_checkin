@@ -138,11 +138,10 @@
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .batch.sent .bi b{color:var(--go)}
   .batch .sendbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;
-    height:40px;padding:0 14px;border:1.5px solid var(--navy);border-radius:var(--r);
-    background:#fff;color:var(--navy);font-weight:800;font-size:14px;text-decoration:none;
+    height:44px;min-width:116px;padding:0 16px;border:1.5px solid var(--navy);border-radius:var(--r);
+    background:#fff;color:var(--navy);font-weight:800;font-size:15px;text-decoration:none;
     white-space:nowrap}
   .batch.sent .sendbtn{border:1px solid var(--btn);background:var(--btnbg);color:#000;font-weight:700}
-  .batch button{flex:none;height:40px}
   .hidden{display:none !important}
 </style>
 </head>
@@ -505,13 +504,21 @@ async function smsRpc(action, payload){
   return res.json();
 }
 
-// iOS 는 sms: 뒤에 ?body= 가 아니라 &body= 를 받는다.
 function smsIsIOS(){
   return /iP(hone|ad|od)/.test(navigator.userAgent) ||
          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
+
+// 받는 사람과 본문을 한 번에 채우는 링크.
+// iOS 는 여러 명을 넣을 때 sms:/open?addresses=... 형식이라야 본문까지 같이 들어간다.
+// 안드로이드는 표준대로 sms:번호,번호?body=... 를 쓴다.
 function smsHref(nums, text){
-  return "sms:" + nums.join(",") + (smsIsIOS() ? "&" : "?") + "body=" + encodeURIComponent(text);
+  // 번호는 숫자만 남아 있으므로 그대로 쓴다. 쉼표는 인코딩하지 않아야 구분자로 먹는다.
+  const to = nums.map(n => String(n).replace(/[^0-9+]/g, "")).join(",");
+  const body = encodeURIComponent(text || "");
+  return smsIsIOS()
+    ? "sms:/open?addresses=" + to + "&body=" + body
+    : "sms:" + to + "?body=" + body;
 }
 
 // 국내 통신사 기준: 한글 2바이트, 90바이트까지 SMS.
@@ -579,18 +586,14 @@ function paintBatches(){
     names.textContent = part.map(r => r.name).join(", ");
     bi.appendChild(t); bi.appendChild(names);
 
+    // 누르면 문자 앱이 열리면서 이 묶음의 번호와 위에 쓴 내용이 그대로 채워진다.
     const a = document.createElement("a");
     a.className = "sendbtn";
-    a.textContent = "문자 앱 열기";
+    a.textContent = "문자 보내기";
     a.href = smsHref(part.map(r => r.phone), text);
-    a.onclick = () => { el.classList.add("sent"); a.textContent = "다시 열기"; };
+    a.onclick = () => { el.classList.add("sent"); a.textContent = "다시 보내기"; };
 
-    const cp = document.createElement("button");
-    cp.className = "small";
-    cp.textContent = "번호 복사";
-    cp.onclick = () => copyText(part.map(r => fmtPhone(r.phone)).join(", "), cp);
-
-    el.appendChild(bi); el.appendChild(a); el.appendChild(cp);
+    el.appendChild(bi); el.appendChild(a);
     box.appendChild(el);
   });
 }
