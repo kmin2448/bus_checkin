@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>방키 수불 · 운영자</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+  :root{
+    --bg:#F3F2EF; --ink:#0A0C0F; --gray:#6B7280; --btn:#CBD3DD; --btnbg:#EDF1F9;
+    --hair:#E7E5DE; --navy:#1E3A5F;
+    --blue:#2F6BFF; --warn:#C0392B; --go:#127A43;
+    --r:5px; --shadow:0 6px 20px rgba(30,40,60,.07);
+    --mono: ui-monospace,"SFMono-Regular","Menlo",monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100dvh;color:var(--ink);background:var(--bg);
+    font-family:"Pretendard Variable",Pretendard,-apple-system,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:30px 16px calc(44px + env(safe-area-inset-bottom));
+  }
+  .wrap{max-width:560px;margin:0 auto}
+  .kicker{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--gray)}
+  .head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px}
+  h1{margin:0;font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.045em}
+  .ghost{font-size:19px;font-weight:800;letter-spacing:-.04em;color:#E2E0D9;white-space:nowrap;padding-top:6px}
+  h2{font-size:13px;font-weight:700;margin:30px 0 10px;color:var(--gray)}
+  h2.h2row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  h2.h2row button{flex:none;height:30px;padding:0 10px;font-size:12px}
+  input,button{font-family:inherit}
+  input[type=password]{width:100%;height:44px;padding:0 13px;border:1px solid var(--btn);
+    border-radius:var(--r);background:#fff;font-size:15px;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  button{height:44px;padding:0 14px;font-size:15px;font-weight:700;color:#000;background:var(--btnbg);
+    border:1px solid var(--btn);border-radius:var(--r);cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;white-space:nowrap}
+  button.small{font-size:13px;padding:0 10px}
+  button.hl{background:#fff;border:1.5px solid var(--navy);color:var(--navy);font-weight:800}
+  button.danger{color:var(--warn)}
+  button:disabled{color:#9AA1AB;background:#FAFAF8;border-color:#E7E5DE;cursor:not-allowed}
+  button:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .linkbtn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;
+    border:1px solid var(--btn);border-radius:var(--r);background:var(--btnbg);color:#000;
+    font-weight:700;font-size:15px;text-decoration:none;white-space:nowrap}
+  .row{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:nowrap;margin-top:12px}
+  .row > button,.row > .linkbtn{flex:1 1 0;min-width:0}
+  .counts{display:flex;gap:10px}
+  .count{flex:1;background:#fff;border:1px solid var(--hair);border-radius:var(--r);padding:15px;text-align:center}
+  .count .n{font-family:var(--mono);font-size:30px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .count .k{font-size:12px;color:var(--gray);margin-top:7px}
+  .count.outc .n{color:var(--warn)}
+  .stamp{font-size:12px;color:var(--gray);text-align:center;margin:10px 0 0}
+  /* 방 카드: 키가 나가서 아직 안 돌아온 방은 빨간 라인으로 구분한다. */
+  .rooms{display:flex;flex-direction:column;gap:8px}
+  .room{background:#fff;border:1px solid var(--hair);border-left:3px solid var(--hair);
+    border-radius:var(--r);padding:12px 14px}
+  .room.out{border-left-color:var(--warn)}
+  .room.in{border-left-color:#9EC6AF}
+  .room .rt{display:flex;align-items:center;gap:8px}
+  .room .rt .rn{flex:1;min-width:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
+  .room .rt .rn span{font-size:13px;font-weight:600;color:var(--gray)}
+  .room .rt button{flex:none;height:30px;padding:0 10px;font-size:12px}
+  .room .rm{margin:7px 0 0;font-size:13px;line-height:1.6;color:var(--gray)}
+  .room .rm b{color:var(--ink);font-weight:700}
+  .room .rb{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .room .rb .st{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--gray)}
+  .room.out .rb .st{color:var(--warn)}
+  .room.in .rb .st{color:var(--go)}
+  .room .rb button{flex:none;height:40px;padding:0 16px;font-size:14px}
+  .blank{background:#fff;border:1px solid var(--hair);border-radius:var(--r);
+    text-align:center;color:var(--gray);font-size:14px;padding:22px 14px}
+  .hint{font-size:13px;color:var(--gray);line-height:1.7;margin:10px 0 0;text-align:center}
+  .mask{position:fixed;inset:0;z-index:30;background:rgba(20,24,32,.34);
+    display:flex;align-items:center;justify-content:center;padding:20px}
+  .dialog{background:#fff;border-radius:var(--r);box-shadow:0 18px 44px rgba(20,24,32,.22);
+    padding:22px;width:100%;max-width:420px;max-height:80vh;overflow:auto;text-align:left}
+  .dialog h3{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.035em}
+  .dialog .s{margin:0 0 16px;font-size:13px;color:var(--gray)}
+  .fld{display:block;font-size:12px;font-weight:700;color:var(--gray);margin:16px 0 6px}
+  .dialog select,.dialog textarea{width:100%;padding:10px 12px;border:1px solid var(--btn);
+    border-radius:var(--r);background:#fff;color:var(--ink);font-family:inherit;font-size:15px;
+    -webkit-appearance:none;appearance:none}
+  .dialog select{height:44px;padding:0 12px}
+  .dialog textarea{line-height:1.6;resize:vertical;min-height:104px}
+  .dialog select:focus,.dialog textarea:focus{outline:none;border-color:var(--navy);
+    box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .cnt{margin:6px 0 0;font-size:12px;color:var(--gray);text-align:right}
+  .cnt b{font-family:var(--mono);font-weight:600;color:var(--ink)}
+  .rcpts{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 4px}
+  .rc{display:inline-flex;align-items:center;gap:2px;height:32px;padding:0 4px 0 12px;
+    border:1px solid var(--btn);border-radius:16px;background:#fff;
+    font-size:13px;font-weight:700;color:var(--ink)}
+  .rc button{height:24px;width:24px;padding:0;border:0;border-radius:50%;background:transparent;
+    color:var(--gray);font-size:12px;font-weight:700;line-height:1}
+  .rc.off{background:var(--bg);border-style:dashed;color:#A7ADB6;cursor:pointer}
+  .rc.off span{text-decoration:line-through}
+  .rc.off button{color:#A7ADB6}
+  .rchint{margin:0 0 6px;font-size:12px;color:var(--gray)}
+  .batch{display:flex;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--hair)}
+  .batch:first-child{border-top:0}
+  .batch .bi{flex:1;min-width:0}
+  .batch .bi b{display:block;font-size:13px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+  .batch .bi span{display:block;font-size:12px;color:var(--gray);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .batch.sent .bi b{color:var(--go)}
+  .batch .sendbtn{flex:none;display:inline-flex;align-items:center;justify-content:center;
+    height:44px;min-width:116px;padding:0 16px;border:1.5px solid var(--navy);border-radius:var(--r);
+    background:#fff;color:var(--navy);font-weight:800;font-size:15px;text-decoration:none;
+    white-space:nowrap}
+  .batch.sent .sendbtn{border:1px solid var(--btn);background:var(--btnbg);color:#000;font-weight:700}
+  .hidden{display:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section id="gate">
+    <p class="kicker">OPERATOR</p>
+    <div class="head"><h1>운영자<br>확인</h1><span class="ghost">staff only.</span></div>
+    <input id="code" type="password" placeholder="운영 코드" autocomplete="off">
+    <div class="row"><button id="enter" class="hl">열기</button></div>
+    <p id="gate-msg" class="hint"></p>
+  </section>
+
+  <section id="panel" class="hidden">
+    <p class="kicker" id="title-band">행사</p>
+    <div class="head"><h1>방키 수불</h1><span class="ghost">keys.</span></div>
+
+    <div class="counts">
+      <div class="count"><div class="n" id="c-rooms">0</div><div class="k">전체 방</div></div>
+      <div class="count outc"><div class="n" id="c-out">0</div><div class="k">키 미반납</div></div>
+      <div class="count"><div class="n" id="c-in">0</div><div class="k">반납 완료</div></div>
+    </div>
+    <p class="stamp" id="stamp">—</p>
+
+    <h2 class="h2row">방 목록 — 방장은 ★ 표시
+      <button id="sms-all-rooms" class="small">전체 문자</button></h2>
+    <div class="rooms" id="room-list"></div>
+    <p class="hint">호수 버튼으로 실제 호수를 넣거나 고칩니다. 방 배정은 관리 페이지의 엑셀 업로드로 올립니다.</p>
+
+    <div class="row" style="margin-top:26px">
+      <a class="linkbtn" href="admin.html">탑승 현황</a>
+      <a class="linkbtn" href="manage.html">명단 · 관리</a>
+    </div>
+  </section>
+
+</div>
+
+<div id="sms-modal" class="mask hidden" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <h3 id="sms-title">문자 보내기</h3>
+    <p class="s" id="sms-sub">—</p>
+
+    <label class="fld" for="sms-tpl">저장해 둔 메시지</label>
+    <select id="sms-tpl"><option value="">새로 작성</option></select>
+
+    <label class="fld" for="sms-body">보낼 내용</label>
+    <textarea id="sms-body" placeholder="예: 방키는 1층 로비 운영석에서 받아 가세요."></textarea>
+    <p class="cnt" id="sms-cnt">—</p>
+    <div class="row">
+      <button id="sms-save" class="small">이 내용 저장</button>
+      <button id="sms-del" class="small danger" disabled>저장한 메시지 삭제</button>
+    </div>
+
+    <label class="fld" id="sms-bh">받는 사람</label>
+    <p class="rchint" id="sms-rchint">✕ 를 누르면 이번 문자에서만 빠집니다. 명단은 바뀌지 않고, 다시 누르면 되돌아옵니다.</p>
+    <div class="rcpts" id="sms-rcpts"></div>
+    <div id="sms-batches"></div>
+
+    <p class="hint" style="text-align:left">
+      버튼을 누르면 휴대폰 문자 앱이 열리고 받는 사람과 내용이 채워집니다.
+      마지막 <b>보내기는 문자 앱에서 직접</b> 눌러 주세요. 운영자 본인 번호로 나갑니다.
+    </p>
+    <div class="row"><button id="sms-close">닫기</button></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
+const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
+const $ = (id) => document.getElementById(id);
+let CODE = "";
+let ROOMS = [];
+
+async function call(fn, body){
+  const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    body: JSON.stringify(body || {})
+  });
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+const roomRpc = (action, payload) =>
+  call("bus_room_admin", { p_code: CODE, p_action: action, p_payload: payload || {} });
+
+function fmtPhone(d){
+  if(!d) return "";
+  if(d.length === 11) return d.slice(0,3)+"-"+d.slice(3,7)+"-"+d.slice(7);
+  if(d.length === 10) return d.slice(0,3)+"-"+d.slice(3,6)+"-"+d.slice(6);
+  return d;
+}
+
+// 방 제목: 실제 호수가 있으면 호수를 크게, 임시배정명은 곁들여 보여 준다.
+function roomTitle(r){
+  return r.room_no || r.room_label || "(이름 없는 방)";
+}
+
+function roomCard(r){
+  const el = document.createElement("div");
+  el.className = "room" + (r.state === "out" ? " out" : r.state === "in" ? " in" : "");
+
+  const rt = document.createElement("div"); rt.className = "rt";
+  const rn = document.createElement("div"); rn.className = "rn";
+  rn.textContent = roomTitle(r) + " ";
+  const sub = document.createElement("span");
+  sub.textContent = (r.room_no && r.room_label ? "· " + r.room_label + " " : "") +
+                    "· " + r.members.length + "명" +
+                    (r.room_no ? "" : " · 호수 미입력");
+  rn.appendChild(sub);
+  const smsBtn = document.createElement("button");
+  smsBtn.textContent = "문자";
+  smsBtn.onclick = () => openSms(roomTitle(r), r.members, "team");
+  const noBtn = document.createElement("button");
+  noBtn.textContent = "호수";
+  noBtn.onclick = async () => {
+    const v = prompt(roomTitle(r) + " — 실제 호수 입력 (예: 1004호)", r.room_no || "");
+    if(v === null) return;
+    await roomRpc("set_room_no", { room: r.room, no: v.trim() });
+    load();
+  };
+  rt.appendChild(rn); rt.appendChild(smsBtn); rt.appendChild(noBtn);
+
+  const rm = document.createElement("div"); rm.className = "rm";
+  r.members.forEach((m, i) => {
+    if(i) rm.appendChild(document.createTextNode(", "));
+    if(m.is_leader){
+      const b = document.createElement("b");
+      b.textContent = "★" + m.name;
+      rm.appendChild(b);
+      rm.appendChild(document.createTextNode(" (" + fmtPhone(m.phone) + ")"));
+    }else{
+      rm.appendChild(document.createTextNode(m.name));
+    }
+  });
+
+  const rb = document.createElement("div"); rb.className = "rb";
+  const st = document.createElement("span"); st.className = "st";
+  const mk = (txt, cls, fn) => {
+    const b = document.createElement("button");
+    b.textContent = txt; if(cls) b.className = cls;
+    b.onclick = async () => { b.disabled = true; try{ await roomRpc(fn.action, { room: r.room }); }catch(e){} load(); };
+    return b;
+  };
+  if(r.state === "pending"){
+    st.textContent = "키 수령 전";
+    rb.appendChild(st);
+    rb.appendChild(mk("키 수령", "hl", { action:"key_out" }));
+  }else if(r.state === "out"){
+    st.textContent = "키 사용 중 · " + (r.out_at || "--:--") + " 수령";
+    rb.appendChild(st);
+    rb.appendChild(mk("수령 취소", "small", { action:"undo_out" }));
+    rb.appendChild(mk("키 반납", "hl", { action:"key_in" }));
+  }else{
+    st.textContent = "반납 완료 · " + (r.in_at || "--:--");
+    rb.appendChild(st);
+    rb.appendChild(mk("반납 취소", "small", { action:"undo_in" }));
+  }
+
+  el.appendChild(rt); el.appendChild(rm); el.appendChild(rb);
+  return el;
+}
+
+function render(d){
+  ROOMS = d.rooms || [];
+  $("title-band").textContent = d.title || "행사";
+  $("c-rooms").textContent = ROOMS.length;
+  $("c-out").textContent = ROOMS.filter(r => r.state === "out").length;
+  $("c-in").textContent = ROOMS.filter(r => r.state === "in").length;
+  $("stamp").textContent = (d.unassigned ? "방 미배정 " + d.unassigned + "명 · " : "") +
+    "갱신 " + new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+
+  const box = $("room-list");
+  box.innerHTML = "";
+  if(!ROOMS.length){
+    const p = document.createElement("div");
+    p.className = "blank";
+    p.textContent = "아직 방 배정이 없습니다. 관리 페이지에서 방 열이 있는 엑셀을 올려 주세요.";
+    box.appendChild(p);
+    return;
+  }
+  ROOMS.forEach(r => box.appendChild(roomCard(r)));
+}
+
+async function load(){
+  try{
+    const d = await roomRpc("list");
+    if(d.status === "ok") render(d);
+  }catch(e){}
+}
+
+/* ---------------------------------------------------------------- 문자 보내기
+   admin.html 과 같은 방식: sms: 링크로 문자 앱을 열어 주고 전송은 직접 누른다. */
+const SMS_CHUNK = 15;
+let SMS_TPLS = [], SMS_ROWS = [], SMS_MODE = "team";
+let SMS_EX = new Set();
+
+const smsRpc = (action, payload) =>
+  call("bus_sms_admin", { p_code: CODE, p_action: action, p_payload: payload || {} });
+
+function smsIsIOS(){
+  return /iP(hone|ad|od)/.test(navigator.userAgent) ||
+         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+function smsHref(nums, text){
+  const to = nums.map(n => String(n).replace(/[^0-9+]/g, "")).join(",");
+  const body = encodeURIComponent(text || "");
+  return smsIsIOS()
+    ? "sms:/open?addresses=" + to + "&body=" + body
+    : "sms:" + to + "?body=" + body;
+}
+function smsBytes(s){
+  let n = 0;
+  for(let i = 0; i < s.length; i++) n += s.charCodeAt(i) > 127 ? 2 : 1;
+  return n;
+}
+function smsCount(){
+  const v = $("sms-body").value;
+  const b = smsBytes(v);
+  $("sms-cnt").innerHTML = v
+    ? "<b>" + v.length + "</b>자 · <b>" + b + "</b>바이트 · " + (b <= 90 ? "단문(SMS)" : "장문(LMS)")
+    : "내용을 입력하면 글자 수가 표시됩니다.";
+}
+function smsTargets(){ return SMS_ROWS.filter(r => !SMS_EX.has(r.phone)); }
+function smsBatches(){
+  const rows = smsTargets();
+  const out = [];
+  for(let i = 0; i < rows.length; i += SMS_CHUNK) out.push(rows.slice(i, i + SMS_CHUNK));
+  return out;
+}
+function paintRcpts(){
+  const box = $("sms-rcpts");
+  const team = SMS_MODE === "team";
+  box.classList.toggle("hidden", !team);
+  $("sms-rchint").classList.toggle("hidden", !team);
+  box.innerHTML = "";
+  if(!team) return;
+  SMS_ROWS.forEach(r => {
+    const off = SMS_EX.has(r.phone);
+    const pill = document.createElement("span");
+    pill.className = "rc" + (off ? " off" : "");
+    const nm = document.createElement("span");
+    nm.textContent = r.name;
+    const x = document.createElement("button");
+    x.textContent = off ? "+" : "✕";
+    pill.appendChild(nm); pill.appendChild(x);
+    const flip = () => {
+      if(SMS_EX.has(r.phone)) SMS_EX.delete(r.phone);
+      else SMS_EX.add(r.phone);
+      paintRcpts(); smsHead(); paintBatches();
+    };
+    x.onclick = flip;
+    if(off) pill.onclick = (e) => { if(e.target !== x) flip(); };
+    box.appendChild(pill);
+  });
+}
+function paintBatches(){
+  const box = $("sms-batches");
+  box.innerHTML = "";
+  const parts = smsBatches();
+  const text = $("sms-body").value;
+  if(!smsTargets().length){
+    const p = document.createElement("p");
+    p.className = "hint"; p.style.margin = "0"; p.style.textAlign = "left";
+    p.textContent = SMS_ROWS.length ? "모두 제외했습니다." : "번호가 있는 사람이 없습니다.";
+    box.appendChild(p);
+    return;
+  }
+  parts.forEach((part, i) => {
+    const el = document.createElement("div"); el.className = "batch";
+    const bi = document.createElement("div"); bi.className = "bi";
+    const t = document.createElement("b");
+    t.textContent = parts.length > 1
+      ? (i + 1) + "번째 묶음 · " + (i * SMS_CHUNK + 1) + "–" + (i * SMS_CHUNK + part.length) + "번째 (" + part.length + "명)"
+      : part.length + "명";
+    const names = document.createElement("span");
+    names.textContent = part.map(r => r.name).join(", ");
+    bi.appendChild(t); bi.appendChild(names);
+    const a = document.createElement("a");
+    a.className = "sendbtn";
+    a.textContent = "문자 보내기";
+    a.href = smsHref(part.map(r => r.phone), text);
+    a.onclick = () => { el.classList.add("sent"); a.textContent = "다시 보내기"; };
+    el.appendChild(bi); el.appendChild(a);
+    box.appendChild(el);
+  });
+}
+function refreshHrefs(){
+  const text = $("sms-body").value;
+  const parts = smsBatches();
+  $("sms-batches").querySelectorAll(".sendbtn").forEach((a, i) => {
+    if(parts[i]) a.href = smsHref(parts[i].map(r => r.phone), text);
+  });
+}
+async function loadTemplates(keep){
+  try{
+    const d = await smsRpc("list");
+    SMS_TPLS = (d && d.rows) || [];
+  }catch(e){ SMS_TPLS = []; }
+  const sel = $("sms-tpl");
+  sel.innerHTML = "";
+  const o0 = document.createElement("option");
+  o0.value = ""; o0.textContent = SMS_TPLS.length ? "새로 작성" : "저장한 메시지 없음 — 새로 작성";
+  sel.appendChild(o0);
+  SMS_TPLS.forEach(t => {
+    const o = document.createElement("option");
+    o.value = String(t.id); o.textContent = t.title;
+    sel.appendChild(o);
+  });
+  sel.value = SMS_TPLS.some(t => String(t.id) === String(keep)) ? String(keep) : "";
+  smsSyncButtons();
+}
+function smsSyncButtons(){
+  const picked = $("sms-tpl").value;
+  $("sms-del").disabled = !picked;
+  $("sms-save").textContent = picked ? "저장한 메시지 고치기" : "이 내용 저장";
+}
+$("sms-tpl").addEventListener("change", () => {
+  const t = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  if(t){ $("sms-body").value = t.body; smsCount(); refreshHrefs(); }
+  smsSyncButtons();
+});
+$("sms-body").addEventListener("input", () => {
+  const cur = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  if(cur && cur.body !== $("sms-body").value){ $("sms-tpl").value = ""; smsSyncButtons(); }
+  smsCount();
+  refreshHrefs();
+});
+$("sms-save").onclick = async () => {
+  const body = $("sms-body").value.trim();
+  if(!body){ alert("보낼 내용을 먼저 입력해 주세요."); return; }
+  const cur = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  const title = prompt("저장할 이름", cur ? cur.title : body.split("\n")[0].slice(0, 20));
+  if(title === null) return;
+  if(!title.trim()){ alert("이름을 넣어 주세요."); return; }
+  const payload = { title: title.trim(), body: body };
+  if(cur) payload.id = cur.id;
+  let d;
+  try{ d = await smsRpc("save", payload); }catch(e){ d = null; }
+  if(!d || d.status !== "ok"){ alert("저장하지 못했습니다."); return; }
+  await loadTemplates(d.id);
+};
+$("sms-del").onclick = async () => {
+  const cur = SMS_TPLS.find(x => String(x.id) === $("sms-tpl").value);
+  if(!cur) return;
+  if(!confirm("저장한 메시지 \"" + cur.title + "\" 을(를) 삭제합니다.")) return;
+  try{ await smsRpc("del", { id: cur.id }); }catch(e){}
+  await loadTemplates("");
+};
+function smsHead(){
+  const n = smsTargets().length;
+  const ex = SMS_EX.size;
+  const parts = Math.ceil(n / SMS_CHUNK);
+  $("sms-sub").textContent = n + "명" +
+    (ex ? " (" + ex + "명 제외)" : "") +
+    (parts > 1 ? " · 한 번에 " + SMS_CHUNK + "명씩 " + parts + "번에 나눠 보냅니다" : "");
+  $("sms-bh").textContent = parts > 1 ? "받는 사람 — " + parts + "개 묶음" : "받는 사람";
+}
+function openSms(group, rows, mode){
+  SMS_MODE = mode || "team";
+  SMS_ROWS = (rows || []).filter(r => r.phone);
+  SMS_EX = new Set();
+  $("sms-title").textContent = "문자 보내기 — " + group;
+  smsHead();
+  $("sms-modal").classList.remove("hidden");
+  smsCount();
+  paintRcpts();
+  paintBatches();
+  loadTemplates($("sms-tpl").value);
+}
+function closeSms(){ $("sms-modal").classList.add("hidden"); }
+$("sms-close").onclick = closeSms;
+$("sms-modal").addEventListener("click", (e) => { if(e.target === $("sms-modal")) closeSms(); });
+document.addEventListener("keydown", (e) => {
+  if(e.key === "Escape" && !$("sms-modal").classList.contains("hidden")) closeSms();
+});
+
+// 방과 상관없이 배정된 사람 전체를 15명씩 끊어 보낸다. (같은 번호는 한 번만)
+$("sms-all-rooms").onclick = () => {
+  const seen = new Set(), rows = [];
+  ROOMS.forEach(r => r.members.forEach(m => {
+    if(m.phone && !seen.has(m.phone)){ seen.add(m.phone); rows.push(m); }
+  }));
+  if(!rows.length){ alert("보낼 사람이 없습니다."); return; }
+  openSms("방 배정자 전체", rows, "list");
+};
+
+async function enter(){
+  CODE = $("code").value.trim();
+  if(!CODE) return;
+  const d = await roomRpc("list").catch(() => null);
+  if(!d || d.status !== "ok"){ $("gate-msg").textContent = "코드가 맞지 않습니다."; return; }
+  localStorage.setItem("bus_admin_code", CODE);
+  $("gate").classList.add("hidden");
+  $("panel").classList.remove("hidden");
+  render(d);
+  setInterval(load, 10000);
+}
+$("enter").onclick = enter;
+$("code").addEventListener("keydown", e => { if(e.key === "Enter") enter(); });
+
+const saved = new URLSearchParams(location.search).get("code") || localStorage.getItem("bus_admin_code");
+if(saved){ $("code").value = saved; enter(); }
+</script>
+</body>
+</html>

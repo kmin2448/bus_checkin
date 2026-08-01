@@ -5,9 +5,10 @@
 
 | 파일 | 용도 |
 | --- | --- |
-| `index.html` | 참가자 화면 — 휴대폰 번호로 탑승 확인 / 탑승 취소 / 명단 추가·수정 요청 |
-| `admin.html` | 인솔자 화면 — 실시간 탑승 현황, 편별 취합 On/Off, 요청 승인 |
-| `manage.html` | 관리 화면 — 명단 업로드(엑셀), 차량·탑승 위치, 소속, 행사 설정 |
+| `index.html` | 참가자 화면 — 탑승 확인 / 탑승 취소 / 명단 요청 / 숙소 방 안내 |
+| `admin.html` | 인솔자 화면 — 실시간 탑승 현황, 편별 취합 On/Off, 요청 승인, 문자 |
+| `rooms.html` | 인솔자 화면 — 방 단위 키 수령·반납, 실제 호수 입력, 방별 문자 |
+| `manage.html` | 관리 화면 — 명단·숙박 엑셀 업로드, 차량·탑승 위치, 안내 문구, 설정 |
 | `sql/` | Supabase(Postgres) 함수 · 설정 마이그레이션 |
 
 빌드 과정은 없습니다. 세 파일을 그대로 정적 호스팅에 올리면 됩니다.
@@ -17,7 +18,9 @@
 
 Supabase 프로젝트 `sudcoss-pd-exhibition` (`jqvbuqgpgmqyviqdkzvl`).
 
-- `bus_passengers` — 편(`leg` = `out` 가는 편 / `back` 오는 편)별 명단과 `boarded_at`
+- `bus_passengers` — 편(`leg` = `out` 가는 편 / `back` 오는 편)별 명단과 `boarded_at`,
+  숙박 컬럼(`room_label` 임시배정명 · `room_no` 실제 호수 · `is_leader` · `key_out_at` · `key_in_at`).
+  숙박 정보는 편과 무관하므로 전화번호 기준으로 양쪽 편 행에 같이 반영된다.
 - `bus_requests` — 참가자가 보낸 명단 추가/번호 수정 요청
 - `bus_groups` — 소속·팀명 선택지
 - `bus_config` — 키/값 설정
@@ -42,7 +45,9 @@ Supabase 프로젝트 `sudcoss-pd-exhibition` (`jqvbuqgpgmqyviqdkzvl`).
 - `bus_request_add(p_name, p_phone, p_note default null, p_leg default null)`
 - `bus_request_status(p_phone, p_leg default null)`
 - `bus_group_options()`
-- `bus_admin(p_code, p_action, p_payload)` — 운영 코드로 보호되는 모든 운영 동작
+- `bus_room_info(p_phone)` — 본인 방 정보만 반환(호수·방장·같은 방 명단·안내 문구). 전체 배정표는 노출하지 않음
+- `bus_admin(p_code, p_action, p_payload)` — 운영 코드로 보호되는 모든 운영 동작. `upload` 는 숙박 열이 있으면 함께 반영
+- `bus_room_admin(p_code, p_action, p_payload)` — 방 목록 / 키 수령·반납·취소 / 호수 입력 / 안내 문구 저장
 - `bus_set_info(p_code, p_bus, p_place)`
 
 `p_leg` 를 넘기지 않으면 켜져 있는 편 중 하나를 알아서 고르므로, 예전에 배포된

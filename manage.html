@@ -32,7 +32,10 @@
   input,button{font-family:inherit}
   input[type=text],input[type=password]{width:100%;height:44px;padding:0 13px;border:1px solid var(--btn);
     border-radius:var(--r);background:#fff;font-size:15px;color:var(--ink)}
-  input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  textarea{width:100%;padding:10px 13px;border:1px solid var(--btn);border-radius:var(--r);
+    background:#fff;font-size:15px;color:var(--ink);font-family:inherit;line-height:1.6;
+    resize:vertical;min-height:88px}
+  input:focus,textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
   button{height:44px;padding:0 12px;font-size:14px;font-weight:700;color:#000;background:var(--btnbg);
     border:1px solid var(--btn);border-radius:var(--r);cursor:pointer;
     display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
@@ -101,7 +104,8 @@
     <h2 id="paste-head">명단 넣기</h2>
     <label class="drop" id="drop" for="file">
       <b>엑셀 파일 열기</b>
-      <span>xlsx · xls · csv — 여기로 끌어다 놓아도 됩니다</span>
+      <span>xlsx · xls · csv — 여기로 끌어다 놓아도 됩니다<br>
+      머리글에 방배정 · 호수 · 방장 열이 있으면 숙박 정보도 함께 올라갑니다</span>
     </label>
     <input id="file" type="file" accept=".xlsx,.xls,.csv">
     <p id="file-msg" class="hint"></p>
@@ -130,6 +134,12 @@
       <div class="row"><button id="save-info" class="small">차량 · 탑승 위치 저장</button></div>
       <p class="hint">입력하면 참가자 탑승 확인 화면 맨 아래에 표시됩니다. 비워 두면 표시되지 않습니다.</p>
 
+      <h2>숙소 안내 문구</h2>
+      <textarea id="key-guide" placeholder="방키 수령 안내 (예: 방키는 18시부터 1층 로비 운영석에서 방장이 받아 가세요.)"></textarea>
+      <textarea id="co-guide" placeholder="체크아웃 안내 (예: 퇴실 전 방키를 프런트에 반납해 주세요.)" style="margin-top:8px"></textarea>
+      <div class="row"><button id="save-guides" class="small">숙소 안내 저장</button></div>
+      <p class="hint">참가자의 숙소 방 안내 화면에 그대로 표시됩니다. 비워 두면 표시되지 않습니다.</p>
+
       <h2>소속 · 팀명</h2>
       <div class="row">
         <input id="group-in" type="text" placeholder="예: 운영진">
@@ -153,7 +163,10 @@
       <div class="row"><button id="save-code" class="small">운영 코드 변경</button></div>
     </div>
 
-    <div class="row" style="margin-top:26px"><a class="linkbtn" href="admin.html">탑승 현황으로 돌아가기</a></div>
+    <div class="row" style="margin-top:26px">
+      <a class="linkbtn" href="admin.html">탑승 현황</a>
+      <a class="linkbtn" href="rooms.html">방키 수불</a>
+    </div>
   </section>
 
 </div>
@@ -213,17 +226,65 @@ function cellsToRow(cells){
   return name ? { name: name, phone: phone, note: note } : null;
 }
 
+/* 첫 줄이 머리글이면 열 이름으로 읽는다.
+   이름 / 휴대폰 번호 / 소속 에 더해 숙박 열(임시배정명 · 실제 호수 · 방장)을
+   알아본다. 숙박 열이 없는 예전 시트는 그대로 동작한다. */
+function mapHeader(cells){
+  const m = { name:-1, phone:-1, note:-1, room_label:-1, room_no:-1, leader:-1 };
+  cells.forEach((raw, i) => {
+    const c = String(raw == null ? "" : raw).trim().toLowerCase();
+    if(!c) return;
+    if(m.leader < 0 && /방장|리더|leader|인솔/.test(c)){ m.leader = i; return; }
+    if(m.room_no < 0 && /호수|호실|객실/.test(c)){ m.room_no = i; return; }
+    if(m.room_label < 0 && /배정|룸|room|^방$|방이름|방 이름/.test(c)){ m.room_label = i; return; }
+    if(m.phone < 0 && /휴대|전화|연락처|폰|phone|번호/.test(c)){ m.phone = i; return; }
+    if(m.name < 0 && /이름|성명|name/.test(c)){ m.name = i; return; }
+    if(m.note < 0 && /소속|팀|조|그룹|note/.test(c)){ m.note = i; return; }
+  });
+  // 이름과 번호 열을 못 찾으면 머리글이 아니라고 본다.
+  return (m.name >= 0 && m.phone >= 0) ? m : null;
+}
+
+function truthy(v){
+  const c = String(v == null ? "" : v).trim().toLowerCase();
+  return ["o","○","◯","y","yes","1","true","방장","리더","leader","예"].indexOf(c) >= 0;
+}
+
+function rowByHeader(cells, m){
+  const get = (i) => i >= 0 && i < cells.length ? String(cells[i] == null ? "" : cells[i]).trim() : "";
+  const phone = fixPhone(get(m.phone));
+  const name = get(m.name);
+  if(!name || !isPhone(phone)) return null;
+  const row = { name: name, phone: phone, note: get(m.note) };
+  if(m.room_label >= 0) row.room_label = get(m.room_label);
+  if(m.room_no >= 0)    row.room_no = get(m.room_no);
+  if(m.leader >= 0)     row.is_leader = truthy(get(m.leader));
+  return row;
+}
+
+// grid(2차원 배열)를 머리글 유무에 따라 파싱한다.
+function parseGrid(grid){
+  if(grid.length){
+    const m = mapHeader(grid[0]);
+    if(m) return grid.slice(1).map(c => rowByHeader(c, m)).filter(Boolean);
+  }
+  return grid.map(cellsToRow).filter(Boolean);
+}
+
 function parseText(text){
-  return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-    .map(l => cellsToRow(l.split(/\t|,|\s{2,}/)))
-    .filter(Boolean);
+  const grid = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    .map(l => l.split(/\t|,|\s{2,}/));
+  return parseGrid(grid);
 }
 
 const rowsEl = $("rows");
 
-function addRow(name, phone, note, focus){
+function addRow(name, phone, note, focus, extra){
   const div = document.createElement("div");
   div.className = "grid entry";
+  // 숙박 열(임시배정명·호수·방장)은 칸으로 보여 주지 않고 줄에 붙여 뒀다가
+  // 올릴 때 같이 보낸다. 손으로 추가한 줄에는 없다.
+  if(extra) div._room = extra;
   const a = document.createElement("input");
   a.placeholder = "홍길동"; a.value = name || "";
   const b = document.createElement("input");
@@ -245,7 +306,9 @@ function entries(){ return Array.from(rowsEl.querySelectorAll(".entry")); }
 
 function rowValues(div){
   const i = div.querySelectorAll("input");
-  return { name: i[0].value.trim(), phone: fixPhone(i[1].value), note: i[2].value.trim() };
+  const v = { name: i[0].value.trim(), phone: fixPhone(i[1].value), note: i[2].value.trim() };
+  if(div._room) Object.assign(v, div._room);
+  return v;
 }
 
 function ensureBlank(){
@@ -262,14 +325,26 @@ function getRows(){
 function countRows(){
   const all = entries().map(rowValues).filter(v => v.name || v.phone || v.note);
   const ok = all.filter(v => v.name && isPhone(v.phone));
+  const roomed = ok.filter(v => "room_label" in v || "room_no" in v || "is_leader" in v).length;
   $("rowcount").textContent = all.length
-    ? ok.length + "명 입력됨" + (all.length > ok.length ? " · " + (all.length - ok.length) + "줄은 이름이나 번호가 비어 있음" : "")
+    ? ok.length + "명 입력됨" +
+      (roomed ? " · 숙박 정보 " + roomed + "명 포함" : "") +
+      (all.length > ok.length ? " · " + (all.length - ok.length) + "줄은 이름이나 번호가 비어 있음" : "")
     : "";
 }
 
 function setRows(list){
   rowsEl.innerHTML = "";
-  list.forEach(r => addRow(r.name, fmtPhone(r.phone), r.note));
+  list.forEach(r => {
+    let extra = null;
+    if("room_label" in r || "room_no" in r || "is_leader" in r){
+      extra = {};
+      if("room_label" in r) extra.room_label = r.room_label;
+      if("room_no" in r)    extra.room_no = r.room_no;
+      if("is_leader" in r)  extra.is_leader = !!r.is_leader;
+    }
+    addRow(r.name, fmtPhone(r.phone), r.note, false, extra);
+  });
   addRow();
   countRows();
 }
@@ -282,7 +357,7 @@ $("extra-toggle").onclick = () => {
   const willOpen = box.classList.contains("hidden");
   box.classList.toggle("hidden", !willOpen);
   $("extra-toggle").textContent = willOpen ? "추가 설정 닫기" : "추가 설정 열기";
-  if(willOpen){ loadGroups(); loadInfo(); }
+  if(willOpen){ loadGroups(); loadInfo(); loadGuides(); }
 };
 
 async function loadInfo(){
@@ -296,6 +371,27 @@ async function loadInfo(){
 $("save-info").onclick = async () => {
   const d = await call("bus_set_info", {
     p_code: CODE, p_bus: $("bus-in").value.trim(), p_place: $("place-in").value.trim()
+  }).catch(() => null);
+  alert(d && d.status === "ok" ? "저장했습니다." : "저장하지 못했습니다.");
+};
+
+// 숙소 안내 문구 — bus_config(room_key_guide / checkout_guide)에 저장된다.
+const roomRpc = (action, payload) =>
+  call("bus_room_admin", { p_code: CODE, p_action: action, p_payload: payload || {} });
+
+async function loadGuides(){
+  try{
+    const d = await roomRpc("guides");
+    if(d.status !== "ok") return;
+    if(document.activeElement !== $("key-guide")) $("key-guide").value = d.key_guide || "";
+    if(document.activeElement !== $("co-guide")) $("co-guide").value = d.checkout_guide || "";
+  }catch(e){}
+}
+
+$("save-guides").onclick = async () => {
+  const d = await roomRpc("set_guides", {
+    key_guide: $("key-guide").value.trim(),
+    checkout_guide: $("co-guide").value.trim()
   }).catch(() => null);
   alert(d && d.status === "ok" ? "저장했습니다." : "저장하지 못했습니다.");
 };
@@ -353,7 +449,7 @@ async function readFile(f){
     const wb = XLSX.read(buf, { type:"array" });
     const ws = wb.Sheets[wb.SheetNames[0]];
     const grid = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"" });
-    const rows = grid.map(cellsToRow).filter(Boolean);
+    const rows = parseGrid(grid);
     if(!rows.length){
       msg.className = "hint bad";
       msg.textContent = "이름과 휴대폰 번호를 찾지 못했습니다. 첫 시트에 두 열이 있는지 확인해 주세요.";
