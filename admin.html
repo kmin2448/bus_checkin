@@ -240,15 +240,8 @@
       <button id="sms-del" class="small danger" disabled>저장한 메시지 삭제</button>
     </div>
 
-    <label class="fld" for="sms-chunk">한 번에 보낼 인원</label>
-    <select id="sms-chunk">
-      <option value="20">20명씩 묶어서</option>
-      <option value="15">15명씩 묶어서</option>
-      <option value="10">10명씩 묶어서</option>
-    </select>
-
     <label class="fld" id="sms-bh">받는 사람</label>
-    <p class="rchint">✕ 를 누르면 이번 문자에서만 빠집니다. 명단은 바뀌지 않고, 다시 누르면 되돌아옵니다.</p>
+    <p class="rchint" id="sms-rchint">✕ 를 누르면 이번 문자에서만 빠집니다. 명단은 바뀌지 않고, 다시 누르면 되돌아옵니다.</p>
     <div class="rcpts" id="sms-rcpts"></div>
     <div id="sms-batches"></div>
 
@@ -501,8 +494,9 @@ LEGS.forEach(leg => {
    실제 발송은 서버가 하지 않는다. sms: 링크로 휴대폰 기본 문자 앱을 열어
    받는 사람과 내용을 채워 주고, 마지막 전송은 운영자가 직접 누른다.
    그래서 운영자 본인 번호로 나가고, 발신번호 등록이나 API 키가 필요 없다. */
-let SMS_CHUNK = 20;
+const SMS_CHUNK = 15;     // 인원이 많으면 항상 15명씩 끊어서 보낸다.
 let SMS_TPLS = [], SMS_ROWS = [], SMS_GROUP = "";
+let SMS_MODE = "team";    // "team" = 소속·팀별(제외 가능) / "list" = 목록 전체(제외 없음)
 let SMS_EX = new Set();   // 이번 발송에서만 제외한 사람(전화번호). 명단에는 손대지 않는다.
 
 async function smsRpc(action, payload){
@@ -558,9 +552,14 @@ function smsBatches(){
 }
 
 // 받는 사람을 알약으로 늘어놓는다. ✕ 로 빼고, 흐려진 알약을 누르면 되돌린다.
+// 소속·팀별로 보낼 때만 쓴다. 목록 전체 문자에서는 숨긴다.
 function paintRcpts(){
   const box = $("sms-rcpts");
+  const team = SMS_MODE === "team";
+  box.classList.toggle("hidden", !team);
+  $("sms-rchint").classList.toggle("hidden", !team);
   box.innerHTML = "";
+  if(!team) return;
   SMS_ROWS.forEach(r => {
     const off = SMS_EX.has(r.phone);
     const pill = document.createElement("span");
@@ -704,18 +703,11 @@ function smsHead(){
   $("sms-bh").textContent = parts > 1 ? "받는 사람 — " + parts + "개 묶음" : "받는 사람";
 }
 
-$("sms-chunk").addEventListener("change", () => {
-  SMS_CHUNK = parseInt($("sms-chunk").value, 10) || 20;
-  smsHead();
-  paintBatches();
-});
-
-function openSms(group, rows, chunk){
+function openSms(group, rows, mode){
   SMS_GROUP = group;
+  SMS_MODE = mode || "team";
   SMS_ROWS = (rows || []).filter(r => r.phone);
   SMS_EX = new Set();   // 창을 새로 열면 제외 목록은 초기화
-  if(chunk) $("sms-chunk").value = String(chunk);
-  SMS_CHUNK = parseInt($("sms-chunk").value, 10) || 20;
   $("sms-title").textContent = "문자 보내기 — " + group;
   smsHead();
   $("sms-modal").classList.remove("hidden");
@@ -726,11 +718,11 @@ function openSms(group, rows, chunk){
 }
 function closeSms(){ $("sms-modal").classList.add("hidden"); }
 
-// 소속과 상관없이 목록 전체를 15명씩 끊어 보낸다.
+// 소속과 상관없이 목록 전체를 15명씩 끊어 보낸다. (이 모드에서는 인원 제외 없음)
 function openSmsList(kind){
   const rows = SMS_LISTS[kind] || [];
   if(!rows.length){ alert("보낼 사람이 없습니다."); return; }
-  openSms(kind === "left" ? "미탑승 전체" : "탑승 완료 전체", rows, 15);
+  openSms(kind === "left" ? "미탑승 전체" : "탑승 완료 전체", rows, "list");
 }
 $("sms-all-left").onclick = () => openSmsList("left");
 $("sms-all-done").onclick = () => openSmsList("done");
