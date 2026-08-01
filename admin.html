@@ -553,7 +553,7 @@ function smsBatches(){
   return out;
 }
 
-// 20명을 넘으면 20명씩 끊어서 묶음마다 따로 연다.
+// 고른 인원 수를 넘으면 그 수만큼 끊어서 묶음마다 따로 연다.
 function paintBatches(){
   const box = $("sms-batches");
   box.innerHTML = "";
