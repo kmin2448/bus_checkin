@@ -96,7 +96,7 @@
   .coltab th{text-align:left;font-weight:700;color:var(--gray);padding:6px 4px;
     border-bottom:1px solid var(--btn)}
   .coltab td{padding:7px 4px;border-bottom:1px solid var(--hair);vertical-align:top;color:var(--gray)}
-  .coltab td:first-child{width:38%;color:var(--ink);font-weight:600}
+  .coltab td:first-child{width:56%;color:var(--ink);font-weight:600}
   .coltab td b{color:var(--ink)}
   .coltab td.off{color:#9AA1AB;font-weight:400}
   .coltab .req{display:inline-block;font-size:10px;font-weight:800;color:var(--warn)}
@@ -151,32 +151,39 @@
 
     <details class="cols">
       <summary>엑셀 열 제목 규칙 보기</summary>
-      <p class="ch">첫 줄이 열 제목입니다. <b>제목에 아래 문구가 들어 있으면</b> 그 열로 읽습니다.
-        (예: "가는차 탑승", "출발 8/10" 모두 가는 편 탑승으로 읽힙니다.)
-        열 순서는 상관없고, 표에 없는 열은 건너뜁니다.</p>
+      <p class="ch">첫 줄이 열 제목입니다. 열 순서는 상관없고, 표에 없는 열은 건너뜁니다.
+        <b>이름</b>과 <b>연락처</b> 열이 둘 다 있어야 첫 줄을 제목으로 인정합니다.</p>
       <table class="coltab">
-        <tr><th>읽는 값</th><th>제목에 들어가야 하는 문구</th></tr>
-        <tr><td><b>이름</b> <span class="req">필수</span></td><td>이름 · 성명 · name</td></tr>
-        <tr><td><b>연락처</b> <span class="req">필수</span></td>
-            <td>연락처 · 휴대 · 전화 · 폰 · 번호 · phone<br>
-              <span class="cs">칸이 비어 있어도 됩니다 — 연락처 추가 필요로 올라갑니다</span></td></tr>
-        <tr><td>소속 대학</td><td>대학 · 학교 · 기관</td></tr>
-        <tr><td>팀명</td><td>팀명 · 팀 · 조명<br>
-              <span class="cs">위 둘을 합쳐 소속 한 값이 됩니다</span></td></tr>
-        <tr><td>소속 (한 열로 쓸 때)</td><td>소속 · 팀 · 조 · 그룹<br>
+        <tr><th>열 제목 <span class="cs">(해당 문구 포함)</span></th><th>표시 형식</th></tr>
+        <tr><td>이름 · 성명 · name <span class="req">필수</span></td>
+            <td>홍길동</td></tr>
+        <tr><td>연락처 · 휴대 · 전화 · 폰 · 번호 · phone <span class="req">필수</span></td>
+            <td>010-1234-5678<br>
+              <span class="cs">비워 두면 연락처 추가 필요로 올라갑니다</span></td></tr>
+        <tr><td>대학 · 학교 · 기관</td><td>강원대학교</td></tr>
+        <tr><td>팀명 · 팀 · 조명</td>
+            <td>딸깍<br><span class="cs">위 둘을 합쳐 <b>강원대학교 딸깍</b> 이 됩니다</span></td></tr>
+        <tr><td>소속 · 조 · 그룹</td>
+            <td>강원대학교 딸깍<br>
               <span class="cs">대학 · 팀명 열이 없을 때만 씁니다</span></td></tr>
-        <tr><td>가는 편 탑승</td><td>탑승 · 버스 · 승차 · 출발 · 복귀 중 하나 <b>+</b> 가는 · 출발</td></tr>
-        <tr><td>오는 편 탑승</td><td>탑승 · 버스 · 승차 · 출발 · 복귀 중 하나 <b>+</b> 오는 · 복귀 · 귀가</td></tr>
-        <tr><td>1일차 숙박</td><td>숙박 · 투숙 · 숙소 <b>+</b> 1 · 첫</td></tr>
-        <tr><td>2일차 숙박</td><td>숙박 · 투숙 · 숙소 <b>+</b> 2 · 둘째 · 이틀</td></tr>
-        <tr><td>방배정</td><td>배정 · 룸 · room · 방</td></tr>
-        <tr><td>객실번호</td><td>호수 · 호실 · 객실</td></tr>
-        <tr><td>방장</td><td>방장 · 리더 · 인솔 · leader</td></tr>
-        <tr><td class="off">안 읽는 열</td><td class="off">학과 · 전공 이 들어간 제목은 건너뜁니다.
-              학번 · 성별 · 비고처럼 표에 없는 제목도 넘어갑니다.</td></tr>
+        <tr><td>성별 · gender</td><td>남 · 여</td></tr>
+        <tr><td>(탑승 · 버스 · 승차 · 출발 · 복귀) <b>+</b> 가는 · 출발</td>
+            <td><b>O</b> <span class="cs">— 가는 편 탑승</span></td></tr>
+        <tr><td>(탑승 · 버스 · 승차 · 출발 · 복귀) <b>+</b> 오는 · 복귀 · 귀가</td>
+            <td><b>O</b> <span class="cs">— 오는 편 탑승</span></td></tr>
+        <tr><td>(숙박 · 투숙 · 숙소) <b>+</b> 1 · 첫</td>
+            <td><b>O</b> <span class="cs">— 1일차 숙박</span></td></tr>
+        <tr><td>(숙박 · 투숙 · 숙소) <b>+</b> 2 · 둘째 · 이틀</td>
+            <td><b>O</b> <span class="cs">— 2일차 숙박</span></td></tr>
+        <tr><td>배정 · 룸 · room · 방</td><td>트리플1</td></tr>
+        <tr><td>호수 · 호실 · 객실</td><td>1004호</td></tr>
+        <tr><td>방장 · 리더 · 인솔 · leader</td><td><b>O</b></td></tr>
+        <tr><td class="off">학과 · 전공</td><td class="off">읽지 않고 건너뜁니다.
+              학번 · 비고처럼 표에 없는 제목도 넘어갑니다.</td></tr>
       </table>
-      <p class="ch">탑승 · 숙박 · 방장 칸은 <b>O</b> 말고 아무 말이나 적혀 있어도 표시로 봅니다.
-        비었거나 <b>- · X · 없음</b>이면 아니라고 봅니다.</p>
+      <p class="ch"><b>O</b> 로 적힌 칸은 O 말고 아무 말이 적혀 있어도 표시로 봅니다
+        (예: 버스, 1박). 비었거나 <b>- · X · 없음</b>이면 아니라고 봅니다.<br>
+        예: "가는차 탑승"도 "출발 8/10"도 모두 가는 편 탑승으로 읽힙니다.</p>
     </details>
 
     <h2>편별 작업</h2>
@@ -303,13 +310,14 @@ function cellsToRow(cells){
    소속은 "소속 대학" 과 "팀명" 을 합쳐 한 값으로 쓴다.
    탑승·숙박 열이 하나도 없는 예전 시트는 예전처럼 편 하나짜리로 읽는다. */
 function mapHeader(cells){
-  const m = { name:-1, phone:-1, note:-1, univ:-1, team:-1,
+  const m = { name:-1, phone:-1, note:-1, univ:-1, team:-1, gender:-1,
               room_label:-1, room_no:-1, leader:-1,
               night1:-1, night2:-1, out:-1, back:-1 };
   cells.forEach((raw, i) => {
     const c = String(raw == null ? "" : raw).trim().toLowerCase();
     if(!c) return;
     if(/학과|전공/.test(c)) return;                    // "소속 학과" 는 쓰지 않는다
+    if(m.gender < 0 && /성별|gender|남녀/.test(c)){ m.gender = i; return; }
     if(/숙박|투숙|숙소/.test(c)){
       if(m.night2 < 0 && /2|둘째|이틀/.test(c)){ m.night2 = i; return; }
       if(m.night1 < 0 && /1|첫/.test(c)){ m.night1 = i; return; }
@@ -368,6 +376,7 @@ function rowByHeader(cells, m, sheet){
   const row = { name: name, phone: isPhone(phone) ? phone : "",
                 note: joinNote(get(m.univ), get(m.team), get(m.note)) };
   if(!row.phone) row.no_phone = true;
+  if(m.gender >= 0) row.gender = get(m.gender);
   if(m.room_label >= 0) row.room_label = get(m.room_label);
   if(m.room_no >= 0)    row.room_no = get(m.room_no);
   if(m.leader >= 0)     row.is_leader = truthy(get(m.leader));
@@ -404,7 +413,7 @@ function personKey(r){
 function groupPeople(rows){
   // 시트에 없는 열은 아예 보내지 않는다. 보내면 서버가 "빈 값"으로 덮어쓴다.
   const has = (k) => rows.some(r => k in r);
-  const hasN1 = has("night1"), hasN2 = has("night2");
+  const hasN1 = has("night1"), hasN2 = has("night2"), hasGen = has("gender");
   const hasRoom = has("room_label") || has("room_no");
 
   const map = {}, order = [];
@@ -414,6 +423,7 @@ function groupPeople(rows){
     if(!p){
       p = map[k] = { name: r.name, phone: r.phone, note: r.note, out: false, back: false };
       if(r.no_phone) p.no_phone = true;
+      if(hasGen) p.gender = "";
       if(hasN1) p.night1 = false;
       if(hasN2) p.night2 = false;
       if(hasRoom) p.rooms = [];
@@ -421,6 +431,7 @@ function groupPeople(rows){
     }
     p.out  = p.out  || !!r.out;
     p.back = p.back || !!r.back;
+    if(hasGen) p.gender = p.gender || (r.gender || "").trim();
     if(hasN1) p.night1 = p.night1 || !!r.night1;
     if(hasN2) p.night2 = p.night2 || !!r.night2;
     if(!hasRoom) return;
@@ -581,7 +592,7 @@ function showSheet(people, name, bad){
     const nm = document.createElement("div"); nm.className = "pn";
     nm.textContent = p.name + " ";
     const sub = document.createElement("span");
-    sub.textContent = [p.note, roomNames(p).join(" + "),
+    sub.textContent = [p.note, (p.gender || "").trim(), roomNames(p).join(" + "),
                        p.no_phone ? "연락처 없음" : ""].filter(Boolean).join(" · ");
     nm.appendChild(sub);
     const fl = document.createElement("div"); fl.className = "pf";
@@ -652,7 +663,7 @@ async function readFile(f){
 
 /* ---------------------------------------------------------------- 내려받기
    올릴 때와 같은 형식으로 뽑아 준다. 받은 파일을 고쳐 그대로 다시 올리면 된다. */
-const SHEET_COLS = ["소속 · 팀","이름","연락처","방배정 (가안)","객실번호",
+const SHEET_COLS = ["소속 · 팀","이름","연락처","성별","방배정 (가안)","객실번호",
                     "방장 (방키수령)","1일차 숙박","2일차 숙박","가는차 탑승","오는차 탑승"];
 const mark = (b) => b ? "O" : "";
 
@@ -673,7 +684,7 @@ $("sheet-down").onclick = async () => {
   // 방을 두 개 쓰는 사람은 두 줄로 나온다. 그대로 다시 올리면 다시 묶인다.
   const aoa = [SHEET_COLS].concat(rows.map(r => [
     r.note || "", r.name || "", r.no_phone ? "입력필요" : (fmtPhone(r.phone) || ""),
-    r.room_label || "", r.room_no || "", mark(r.is_leader),
+    r.gender || "", r.room_label || "", r.room_no || "", mark(r.is_leader),
     mark(r.night1), mark(r.night2), mark(r.rides_out), mark(r.rides_back)
   ]));
   saveBook(aoa, "명단취합", (d.title || "행사").replace(/[\\/:*?"<>|]/g, "") + "_통합명단.xlsx");

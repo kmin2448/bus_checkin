@@ -157,6 +157,8 @@
   .fr button{flex:none;height:34px;font-size:13px}
   .fr .in{font-size:12px;font-weight:700;color:var(--go);flex:none;padding:0 6px}
   .fmsg{font-size:13px;color:var(--gray);padding:12px 2px;margin:0}
+  .dialog.add select{margin-bottom:8px}
+  .room .rt .rn span.warn{color:var(--warn);font-weight:700}
   .dialog select,.dialog textarea{width:100%;padding:10px 12px;border:1px solid var(--btn);
     border-radius:var(--r);background:#fff;color:var(--ink);font-family:inherit;font-size:15px;
     -webkit-appearance:none;appearance:none}
@@ -307,6 +309,7 @@
     <input id="add-name" type="text" placeholder="이름" autocomplete="off">
     <input id="add-phone" type="tel" inputmode="numeric" placeholder="010-0000-0000 (모르면 비워 두세요)">
     <input id="add-note" type="text" placeholder="소속 · 팀 (예: 강원대학교 딸깍)" autocomplete="off">
+    <select id="add-gender"><option value="">성별 (선택)</option><option value="남">남</option><option value="여">여</option></select>
     <div class="row"><button id="add-new" class="small hl">새로 등록해서 추가</button></div>
     <p class="hint" style="text-align:left">번호를 비워 두면 <b>연락처 추가 필요</b>로 올라갑니다.
       나중에 종 아이콘에서 번호를 넣을 수 있습니다.</p>
@@ -331,6 +334,7 @@
     <input id="mem-name" type="text" placeholder="이름" autocomplete="off">
     <input id="mem-phone" type="tel" inputmode="numeric" placeholder="010-0000-0000 (모르면 비워 두세요)">
     <input id="mem-note" type="text" placeholder="소속 · 팀 (예: 강원대학교 딸깍)" autocomplete="off">
+    <select id="mem-gender"><option value="">성별 (선택)</option><option value="남">남</option><option value="여">여</option></select>
     <div class="row"><button id="mem-new" class="small hl">새로 등록해서 이 방에</button></div>
     <p class="hint" style="text-align:left">버스를 타지 않는 사람으로 등록됩니다.
       탑승 명단에는 가는 편 · 오는 편 탭에서 따로 넣어 주세요.</p>
@@ -561,6 +565,25 @@ async function loadRooms(){
 // 방 제목: 실제 호수가 있으면 호수를 크게, 임시배정명은 곁들여 보여 준다.
 function roomTitle(r){ return r.room_no || r.room_label || "(이름 없는 방)"; }
 
+// 성별은 시트에 적힌 대로 두고(남 · 여 · M · F …) 첫 글자로만 가른다.
+function genderOf(v){
+  const c = (v || "").trim().toLowerCase();
+  if(!c) return "";
+  if(c[0] === "남" || c[0] === "m") return "남";
+  if(c[0] === "여" || c[0] === "f" || c[0] === "w") return "여";
+  return "";
+}
+
+// 방 하나의 성별 구성. 남녀가 섞이면 눈에 띄게 알려 준다.
+function genderMix(members){
+  const set = {};
+  (members || []).forEach(m => { const g = genderOf(m.gender); if(g) set[g] = 1; });
+  const ks = Object.keys(set);
+  if(!ks.length) return "";
+  if(ks.length > 1) return "남녀 섞임";
+  return ks[0];
+}
+
 function roomCard(r){
   const el = document.createElement("div");
   el.className = "room" + (r.state === "out" ? " out" : r.state === "in" ? " in" : "");
@@ -572,9 +595,12 @@ function roomCard(r){
   // 1일차와 2일차 이용자가 다른 방이 있어서 며칠치인지 같이 보여 준다.
   const nights = (r.n1 || 0) + (r.n2 || 0)
     ? " · 1일차 " + (r.n1 || 0) + "명 · 2일차 " + (r.n2 || 0) + "명" : "";
+  // 방을 옮기다 남녀가 섞이면 바로 보이도록 성별 구성을 적는다.
+  const g = genderMix(r.members);
   sub.textContent = (r.room_no && r.room_label ? "· " + r.room_label + " " : "") +
-                    "· " + r.members.length + "명" + nights +
+                    "· " + r.members.length + "명" + (g ? " · " + g : "") + nights +
                     (r.room_no ? "" : " · 호수 미입력");
+  if(g === "남녀 섞임") sub.className = "warn";
   rn.appendChild(sub);
   const memBtn = document.createElement("button");
   memBtn.textContent = "인원";
@@ -790,7 +816,7 @@ let ADD_TIMER = null;
 function openAdd(){
   $("add-sub").textContent = legLabel(LEG) + " 명단에 넣습니다.";
   $("add-q").value = ""; $("add-name").value = "";
-  $("add-phone").value = ""; $("add-note").value = "";
+  $("add-phone").value = ""; $("add-note").value = ""; $("add-gender").value = "";
   $("add-found").innerHTML = "";
   $("add-modal").classList.remove("hidden");
   searchPeople();
@@ -819,7 +845,8 @@ async function searchPeople(){
     const el = document.createElement("div"); el.className = "fr";
     const fi = document.createElement("div"); fi.className = "fi";
     const fn = document.createElement("div"); fn.className = "fn";
-    fn.textContent = r.name + (r.no_phone ? " (연락처 없음)" : "");
+    fn.textContent = r.name + (genderOf(r.gender) ? " (" + genderOf(r.gender) + ")" : "") +
+                     (r.no_phone ? " · 연락처 없음" : "");
     const fs = document.createElement("div"); fs.className = "fs";
     fs.textContent = [r.note, r.no_phone ? "" : fmtPhone(r.phone),
                       (r.rooms || []).join(" + ")].filter(Boolean).join(" · ");
@@ -860,11 +887,12 @@ $("add-new").onclick = async () => {
   const btn = $("add-new");
   btn.disabled = true;
   const res = await peopleRpc("add", { leg: LEG, name: name, phone: digits,
-                                       note: $("add-note").value.trim() }).catch(() => null);
+                                       note: $("add-note").value.trim(),
+                                       gender: $("add-gender").value }).catch(() => null);
   btn.disabled = false;
   if(!res || res.status === "invalid"){ alert("이름을 넣어 주세요."); return; }
   if(res.status === "exists"){ alert("이미 " + legLabel(LEG) + " 명단에 있는 사람입니다."); return; }
-  $("add-name").value = ""; $("add-phone").value = ""; $("add-note").value = "";
+  $("add-name").value = ""; $("add-phone").value = ""; $("add-note").value = ""; $("add-gender").value = "";
   await searchPeople();
   load();
 };
@@ -936,7 +964,7 @@ function openMembers(r){
   $("mem-sub").textContent = (r.room_no && r.room_label ? r.room_label + " · " : "") +
                              r.members.length + "명";
   $("mem-q").value = ""; $("mem-name").value = "";
-  $("mem-phone").value = ""; $("mem-note").value = "";
+  $("mem-phone").value = ""; $("mem-note").value = ""; $("mem-gender").value = "";
   $("mem-found").innerHTML = "";
   paintMembers();
   $("mem-modal").classList.remove("hidden");
@@ -971,7 +999,8 @@ function paintMembers(){
     const el = document.createElement("div"); el.className = "fr";
     const fi = document.createElement("div"); fi.className = "fi";
     const fn = document.createElement("div"); fn.className = "fn";
-    fn.textContent = (m.is_leader ? "★" : "") + m.name;
+    fn.textContent = (m.is_leader ? "★" : "") + m.name +
+                     (genderOf(m.gender) ? " (" + genderOf(m.gender) + ")" : "");
     const fs = document.createElement("div"); fs.className = "fs";
     fs.textContent = m.no_phone ? "연락처 없음" : fmtPhone(m.phone);
     fi.appendChild(fn); fi.appendChild(fs);
@@ -1020,7 +1049,8 @@ async function searchMembers(){
     const el = document.createElement("div"); el.className = "fr";
     const fi = document.createElement("div"); fi.className = "fi";
     const fn = document.createElement("div"); fn.className = "fn";
-    fn.textContent = r.name + (r.no_phone ? " (연락처 없음)" : "");
+    fn.textContent = r.name + (genderOf(r.gender) ? " (" + genderOf(r.gender) + ")" : "") +
+                     (r.no_phone ? " · 연락처 없음" : "");
     const fs = document.createElement("div"); fs.className = "fs";
     fs.textContent = [r.note, (r.rooms || []).length ? "지금 " + r.rooms.join(" + ") : ""]
       .filter(Boolean).join(" · ");
@@ -1053,10 +1083,11 @@ $("mem-new").onclick = async () => {
   const btn = $("mem-new");
   btn.disabled = true;
   const res = await peopleRpc("room_add", { room: MEM_ROOM.room, name: name, phone: digits,
-                                            note: $("mem-note").value.trim() }).catch(() => null);
+                                            note: $("mem-note").value.trim(),
+                                            gender: $("mem-gender").value }).catch(() => null);
   btn.disabled = false;
   if(!res || res.status !== "ok"){ alert("넣지 못했습니다. 이름을 확인해 주세요."); return; }
-  $("mem-name").value = ""; $("mem-phone").value = ""; $("mem-note").value = "";
+  $("mem-name").value = ""; $("mem-phone").value = ""; $("mem-note").value = ""; $("mem-gender").value = "";
   refreshMembers();
 };
 
