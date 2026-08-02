@@ -154,7 +154,7 @@
     <h3 id="sms-title">문자 보내기</h3>
     <p class="s" id="sms-sub">—</p>
 
-    <label class="fld" for="sms-tpl">저장해 둔 메시지</label>
+    <label class="fld" for="sms-tpl">저장해 둔 숙소 안내 메시지</label>
     <select id="sms-tpl"><option value="">새로 작성</option></select>
 
     <label class="fld" for="sms-body">보낼 내용</label>
@@ -325,8 +325,10 @@ const SMS_CHUNK = 15;
 let SMS_TPLS = [], SMS_ROWS = [], SMS_MODE = "team";
 let SMS_EX = new Set();
 
+// 저장해 둔 메시지는 쓰임새별로 나뉜다. 이 화면은 숙소·방키("room") 쪽만 본다.
 const smsRpc = (action, payload) =>
-  call("bus_sms_admin", { p_code: CODE, p_action: action, p_payload: payload || {} });
+  call("bus_sms_admin", { p_code: CODE, p_action: action,
+                          p_payload: Object.assign({ kind: "room" }, payload || {}) });
 
 function smsIsIOS(){
   return /iP(hone|ad|od)/.test(navigator.userAgent) ||

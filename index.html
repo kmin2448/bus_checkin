@@ -74,6 +74,19 @@
   .backlink{display:block;text-align:center;margin-top:24px;font-size:13px;font-weight:600;
     color:var(--gray);text-decoration:underline;text-underline-offset:4px}
   .card{background:#fff;border:1px solid var(--hair);border-radius:var(--r);box-shadow:var(--shadow);padding:26px 22px}
+  /* 첫 화면 — 무엇을 하러 왔는지 먼저 고른다 */
+  .picks{display:grid;gap:12px;margin-top:26px}
+  .pick{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--hair);
+    border-radius:var(--r);box-shadow:var(--shadow);padding:22px;cursor:pointer;
+    font-family:inherit;color:var(--ink)}
+  .pick:hover,.pick:focus-visible{outline:none;border-color:var(--navy);
+    box-shadow:0 8px 22px rgba(30,58,95,.14)}
+  .pick .pt{margin:0;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--blue)}
+  .pick .ph{margin:8px 0 0;font-size:24px;font-weight:800;letter-spacing:-.035em}
+  .pick .ps{margin:8px 0 0;font-size:13px;line-height:1.6;color:var(--gray)}
+  .pick.off{background:var(--soft);box-shadow:none}
+  .pick.off .pt{color:var(--gray)}
+  .pick.off .ph{color:#6B7280}
   .status{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--blue)}
   .status.stop{color:var(--warn)}
   .who{margin:0;font-size:30px;font-weight:800;letter-spacing:-.04em}
@@ -125,6 +138,24 @@
 <body>
 <div class="wrap">
 
+  <section id="home-view" class="hidden">
+    <p class="kicker t-title">SDU COSS X 강원랜드 바이브 코딩 캠프</p>
+    <div class="head"><h1>무엇을<br>도와드릴까요</h1><span class="ghost">start.</span></div>
+
+    <div class="picks">
+      <button class="pick" id="pick-bus" type="button">
+        <p class="pt" id="pick-bus-tag">BUS</p>
+        <p class="ph">버스 탑승 확인</p>
+        <p class="ps" id="pick-bus-sub">버스에 타신 뒤 휴대폰 번호로 탑승을 확인합니다.</p>
+      </button>
+      <button class="pick" id="pick-room" type="button">
+        <p class="pt">숙소</p>
+        <p class="ph">숙소 방 안내</p>
+        <p class="ps">휴대폰 번호로 배정된 방과 같은 방 인원을 확인합니다.</p>
+      </button>
+    </div>
+  </section>
+
   <section id="form-view" class="hidden">
     <p class="kicker t-title">SDU COSS X 강원랜드 바이브 코딩 캠프</p>
     <div class="head legged">
@@ -149,6 +180,7 @@
     </div>
 
     <button id="room-open" class="ghostbtn">숙소 · 방 안내 보기</button>
+    <a href="#" id="bus-home" class="backlink">처음으로</a>
   </section>
 
   <section id="room-view" class="hidden">
@@ -222,6 +254,7 @@
     <p class="lede">인솔자가 확인을 시작하면 이 화면에서 바로 진행할 수 있습니다.</p>
     <button id="recheck" class="primary">다시 확인</button>
     <button id="room-open2" class="ghostbtn">숙소 · 방 안내 보기</button>
+    <a href="#" id="closed-home" class="backlink">처음으로</a>
   </section>
 
   <section id="result-view" class="hidden">
@@ -295,10 +328,36 @@ function autoFormat(el){
 const phone = $("phone"), go = $("go"), err = $("err"), ask = $("ask"), askCancel = $("ask-cancel");
 
 function showOnly(id){
-  ["form-view","req-view","done-view","closed-view","result-view","room-view"].forEach(v => {
+  ["home-view","form-view","req-view","done-view","closed-view","result-view","room-view"].forEach(v => {
     $(v).classList.toggle("hidden", v !== id);
   });
   if(id !== "done-view") stopPoll();
+}
+
+/* 첫 화면에서 무엇을 하러 왔는지 먼저 고른다. 고르기 전에는 "" 이고,
+   고른 뒤에는 "bus" / "room" 이다. 20초마다 도는 상태 갱신이 보고 있던
+   화면을 첫 화면으로 되돌리지 않도록 이 값으로 가른다. */
+let PICKED = "";
+
+function goHome(){
+  PICKED = "";
+  paintHome();
+  showOnly("home-view");
+}
+
+function paintHome(){
+  const open = openLegs().length > 0;
+  $("pick-bus").classList.toggle("off", !open);
+  $("pick-bus-tag").textContent = open ? legLabel(LEG) : "지금은 확인 전";
+  $("pick-bus-sub").textContent = open
+    ? "버스에 타신 뒤 휴대폰 번호로 탑승을 확인합니다."
+    : "인솔자가 확인을 시작하면 바로 진행할 수 있습니다.";
+}
+
+function openBusView(){
+  PICKED = "bus";
+  if(openLegs().length){ showOnly("form-view"); syncGo(); }
+  else showOnly("closed-view");
 }
 function syncGo(){ go.disabled = digits(phone.value).length < 10; }
 
@@ -336,10 +395,12 @@ async function loadStatus(reset){
   paint();
   const legs = openLegs();
   if(reset){
-    showOnly(legs.length ? "form-view" : "closed-view");
-    syncGo();
+    if(PICKED === "bus"){ openBusView(); }
+    else goHome();
     return;
   }
+  paintHome();
+  if(PICKED !== "bus") return;   // 숙소 쪽을 보고 있으면 건드리지 않는다
   if(!legs.length && !$("form-view").classList.contains("hidden")) showOnly("closed-view");
   else if(legs.length && !$("closed-view").classList.contains("hidden")){ showOnly("form-view"); syncGo(); }
 }
@@ -383,7 +444,11 @@ phone.addEventListener("input", () => {
 });
 phone.addEventListener("keydown", (e) => { if(e.key === "Enter" && !go.disabled) openAsk(); });
 go.addEventListener("click", openAsk);
-$("recheck").addEventListener("click", () => loadStatus(true));
+$("recheck").addEventListener("click", () => { PICKED = "bus"; loadStatus(true); });
+$("pick-bus").addEventListener("click", openBusView);
+$("pick-room").addEventListener("click", () => openRoomView());
+$("bus-home").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
+$("closed-home").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
 autoFormat($("r-phone-in"));
 
 function openAsk(){
@@ -577,7 +642,9 @@ async function submit(){
         setWaiting();
         startPoll(d);
       }else{
-        showError("이번 " + legLabel(data.leg) + " 명단에서 이 번호를 찾지 못했습니다. 번호를 다시 확인하시거나, 아래에서 추가/수정을 요청해 주세요.");
+        // 운영자가 켜 둔 편의 명단에 없는 사람. 바로 요청을 보낼 수 있게 연다.
+        showError(legLabel(data.leg) + " 탑승자 명단에 포함되어있지 않습니다. " +
+                  "탑승을 원하실 경우 운영진에게 명단 추가 요청을 하세요.");
         $("req-open").classList.remove("hidden");
       }
     }else{
@@ -626,6 +693,7 @@ roomPhone.addEventListener("input", () => {
 roomPhone.addEventListener("keydown", (e) => { if(e.key === "Enter" && !roomGo.disabled) loadRoom(); });
 
 function openRoomView(){
+  PICKED = "room";
   roomPhone.value = pretty(digits(phone.value));
   roomGo.disabled = digits(roomPhone.value).length < 10;
   $("room-err").classList.add("hidden");
@@ -636,7 +704,7 @@ function openRoomView(){
 }
 $("room-open").addEventListener("click", openRoomView);
 $("room-open2").addEventListener("click", openRoomView);
-$("room-back").addEventListener("click", (e) => { e.preventDefault(); loadStatus(true); });
+$("room-back").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
 
 function roomErr(msg){
   $("room-err").textContent = msg;

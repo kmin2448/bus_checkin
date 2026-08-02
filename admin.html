@@ -238,7 +238,7 @@
     <h3 id="sms-title">문자 보내기</h3>
     <p class="s" id="sms-sub">—</p>
 
-    <label class="fld" for="sms-tpl">저장해 둔 메시지</label>
+    <label class="fld" for="sms-tpl">저장해 둔 탑승 안내 메시지</label>
     <select id="sms-tpl"><option value="">새로 작성</option></select>
 
     <label class="fld" for="sms-body">보낼 내용</label>
@@ -555,11 +555,13 @@ let SMS_TPLS = [], SMS_ROWS = [], SMS_GROUP = "";
 let SMS_MODE = "team";    // "team" = 소속·팀별(제외 가능) / "list" = 목록 전체(제외 없음)
 let SMS_EX = new Set();   // 이번 발송에서만 제외한 사람(전화번호). 명단에는 손대지 않는다.
 
+// 저장해 둔 메시지는 쓰임새별로 나뉜다. 이 화면은 탑승("bus") 쪽만 본다.
 async function smsRpc(action, payload){
+  const body = Object.assign({ kind: "bus" }, payload || {});
   const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/bus_sms_admin", {
     method:"POST",
     headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
-    body: JSON.stringify({ p_code: CODE, p_action: action, p_payload: payload || {} })
+    body: JSON.stringify({ p_code: CODE, p_action: action, p_payload: body })
   });
   if(!res.ok) throw new Error(await res.text());
   return res.json();
