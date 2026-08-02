@@ -136,6 +136,10 @@
   .room .rm button.tel{height:auto;padding:0;border:0;background:transparent;
     font-family:var(--mono);font-size:12px;color:var(--gray);font-weight:400;
     text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .room .rm button.who{height:auto;padding:0;border:0;background:transparent;
+    font-size:13px;color:var(--gray);font-weight:400;
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .room .rm button.who.lead{color:var(--ink);font-weight:700}
   .fr button.tel{height:auto;padding:0;border:0;background:transparent;
     font-family:var(--mono);font-size:12px;color:var(--gray);font-weight:400;
     text-decoration:underline;text-underline-offset:3px;cursor:pointer}
@@ -157,10 +161,18 @@
     display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
   .mask{position:fixed;inset:0;z-index:30;background:rgba(20,24,32,.34);
     display:flex;align-items:center;justify-content:center;padding:20px}
-  .dialog{background:#fff;border-radius:var(--r);box-shadow:0 18px 44px rgba(20,24,32,.22);
+  .dialog{position:relative;background:#fff;border-radius:var(--r);box-shadow:0 18px 44px rgba(20,24,32,.22);
     padding:22px;width:100%;max-width:420px;max-height:80vh;overflow:auto;text-align:center}
   .dialog h3{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.035em}
   .dialog .s{margin:0 0 16px;font-size:13px;color:var(--gray)}
+  /* 창 오른쪽 위 닫기(✕) */
+  .dialog .x{position:absolute;top:10px;right:10px;width:34px;height:34px;padding:0;
+    border:0;border-radius:var(--r);background:transparent;color:var(--gray);
+    font-size:15px;font-weight:700;line-height:1;cursor:pointer}
+  .dialog .x:hover{background:var(--bg);color:var(--ink)}
+  /* 연락처 고르기 창은 인원 창 위에서 열린다. 인원 창이 뒤에 적혀 있어서
+     같은 z-index 면 인원 창에 가린다. */
+  #ct-modal{z-index:40}
   .reqitem{border-top:1px solid var(--hair);padding:12px 0}
   .reqitem:first-of-type{border-top:0}
   .reqitem .tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;
@@ -376,11 +388,13 @@
 
 <div id="ct-modal" class="mask hidden" role="dialog" aria-modal="true">
   <div class="dialog">
+    <button id="ct-close" class="x" aria-label="닫기">✕</button>
     <h3 id="ct-title">—</h3>
     <p class="s" id="ct-sub">—</p>
-    <div class="row"><a id="ct-call" class="linkbtn" href="#">전화 걸기</a></div>
-    <div class="row"><button id="ct-sms" class="hl">문자 보내기</button></div>
-    <div class="row"><button id="ct-close">닫기</button></div>
+    <div class="row">
+      <a id="ct-call" class="linkbtn" href="#">전화 걸기</a>
+      <button id="ct-sms" class="hl">문자 보내기</button>
+    </div>
   </div>
 </div>
 
@@ -832,14 +846,26 @@ function roomCard(r){
     if(m.night2) return "(2일차만)";
     return "(숙박 없음)";
   };
+  // 이름도 번호도 눌러서 전화·문자를 고를 수 있게 한다. 방장 번호만 눌리던 때는
+  // 다른 방원에게 연락하려면 인원 창을 따로 열어야 했다.
   r.members.forEach((m, i) => {
     if(i) rm.appendChild(document.createTextNode(", "));
     const tag = stayTag(m);
+    const label = (m.is_leader ? "★" : "") + m.name;
+
+    if(m.no_phone){
+      const s = document.createElement(m.is_leader ? "b" : "span");
+      s.textContent = label;
+      rm.appendChild(s);
+    }else{
+      const nb = document.createElement("button");
+      nb.className = "who" + (m.is_leader ? " lead" : "");
+      nb.textContent = label;
+      nb.onclick = () => openContact(m.name, m.phone, "room");
+      rm.appendChild(nb);
+    }
+
     if(m.is_leader){
-      const b = document.createElement("b");
-      b.textContent = "★" + m.name;
-      rm.appendChild(b);
-      // 방장 번호는 눌러서 전화·문자를 고를 수 있게 한다.
       rm.appendChild(document.createTextNode(" ("));
       if(m.no_phone){
         rm.appendChild(document.createTextNode("연락처 없음"));
@@ -849,10 +875,9 @@ function roomCard(r){
         t.onclick = () => openContact(m.name, m.phone, "room");
         rm.appendChild(t);
       }
-      rm.appendChild(document.createTextNode(")" + (tag ? " " + tag : "")));
-    }else{
-      rm.appendChild(document.createTextNode(m.name + (tag ? " " + tag : "")));
+      rm.appendChild(document.createTextNode(")"));
     }
+    if(tag) rm.appendChild(document.createTextNode(" " + tag));
   });
 
   const rb = document.createElement("div"); rb.className = "rb";
