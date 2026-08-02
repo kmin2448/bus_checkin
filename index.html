@@ -87,6 +87,9 @@
   .pick.off{background:var(--soft);box-shadow:none}
   .pick.off .pt{color:var(--gray)}
   .pick.off .ph{color:#6B7280}
+  .pick .pd{font-size:15px;font-weight:800;color:var(--go);letter-spacing:-.02em;white-space:nowrap}
+  .pick.done{border-color:#BFE0CD}
+  .pick.done .pt{color:var(--go)}
   .status{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--blue)}
   .status.stop{color:var(--warn)}
   .who{margin:0;font-size:30px;font-weight:800;letter-spacing:-.04em}
@@ -145,7 +148,7 @@
     <div class="picks">
       <button class="pick" id="pick-bus" type="button">
         <p class="pt" id="pick-bus-tag">BUS</p>
-        <p class="ph">버스 탑승 확인</p>
+        <p class="ph">버스 탑승 확인<span class="pd hidden" id="pick-bus-done"> (탑승 확인 완료)</span></p>
         <p class="ps" id="pick-bus-sub">버스에 타신 뒤 휴대폰 번호로 탑승을 확인합니다.</p>
       </button>
       <button class="pick" id="pick-room" type="button">
@@ -180,7 +183,7 @@
     </div>
 
     <button id="room-open" class="ghostbtn">숙소 · 방 안내 보기</button>
-    <a href="#" id="bus-home" class="backlink">처음으로</a>
+    <a href="#" id="bus-home" class="backlink">첫 화면으로 가기</a>
   </section>
 
   <section id="room-view" class="hidden">
@@ -204,7 +207,7 @@
       </div>
     </div>
 
-    <a href="#" id="room-back" class="backlink">돌아가기</a>
+    <a href="#" id="room-back" class="backlink">첫 화면으로 가기</a>
   </section>
 
   <section id="req-view" class="hidden">
@@ -254,7 +257,7 @@
     <p class="lede">인솔자가 확인을 시작하면 이 화면에서 바로 진행할 수 있습니다.</p>
     <button id="recheck" class="primary">다시 확인</button>
     <button id="room-open2" class="ghostbtn">숙소 · 방 안내 보기</button>
-    <a href="#" id="closed-home" class="backlink">처음으로</a>
+    <a href="#" id="closed-home" class="backlink">첫 화면으로 가기</a>
   </section>
 
   <section id="result-view" class="hidden">
@@ -269,6 +272,7 @@
       <a href="#" id="again" class="again">다른 번호로 확인하기</a>
       <a href="#" id="cancel-in" class="again cancel">탑승 취소하기</a>
     </div>
+    <a href="#" id="result-home" class="backlink">첫 화면으로 가기</a>
   </section>
 
 </div>
@@ -339,6 +343,11 @@ function showOnly(id){
    화면을 첫 화면으로 되돌리지 않도록 이 값으로 가른다. */
 let PICKED = "";
 
+/* 이 기기에서 방금 탑승 확인을 마친 사람. 첫 화면 카드에 "탑승 확인 완료" 로
+   보여 주고, 카드를 다시 누르면 그 확인 카드로 되돌아간다.
+   기기를 돌려 쓰므로 화면에만 두고 저장하지는 않는다. */
+let DONE = null;
+
 function goHome(){
   PICKED = "";
   paintHome();
@@ -347,15 +356,22 @@ function goHome(){
 
 function paintHome(){
   const open = openLegs().length > 0;
+  const done = open && DONE && DONE.leg === LEG;
   $("pick-bus").classList.toggle("off", !open);
+  $("pick-bus").classList.toggle("done", !!done);
+  $("pick-bus-done").classList.toggle("hidden", !done);
   $("pick-bus-tag").textContent = open ? legLabel(LEG) : "지금은 확인 전";
-  $("pick-bus-sub").textContent = open
-    ? "버스에 타신 뒤 휴대폰 번호로 탑승을 확인합니다."
-    : "인솔자가 확인을 시작하면 바로 진행할 수 있습니다.";
+  $("pick-bus-sub").textContent = done
+    ? DONE.name + " 님 · " + DONE.at + " 확인됨 — 눌러서 다시 보거나 취소할 수 있습니다."
+    : open
+      ? "버스에 타신 뒤 휴대폰 번호로 탑승을 확인합니다."
+      : "인솔자가 확인을 시작하면 바로 진행할 수 있습니다.";
 }
 
 function openBusView(){
   PICKED = "bus";
+  // 이미 확인을 마쳤으면 그 확인 카드를 다시 보여 준다.
+  if(DONE && DONE.leg === LEG && openLegs().length){ showOnly("result-view"); return; }
   if(openLegs().length){ showOnly("form-view"); syncGo(); }
   else showOnly("closed-view");
 }
@@ -482,12 +498,24 @@ document.addEventListener("keydown", (e) => {
   if(!askCancel.classList.contains("hidden")) closeCancelAsk();
 });
 
+// 다음 사람이 확인할 차례다. 앞사람의 확인 표시는 지운다.
 $("again").addEventListener("click", (e) => {
   e.preventDefault();
   phone.value = "";
   LAST = { phone:"", leg:"" };
+  DONE = null;
   $("req-open").classList.add("hidden");
   loadStatus(true);
+});
+
+/* 확인을 마친 뒤 첫 화면으로. 번호 칸은 지우되 취소는 할 수 있어야 하므로
+   방금 확인한 사람(LAST · DONE)은 그대로 둔다. */
+$("result-home").addEventListener("click", (e) => {
+  e.preventDefault();
+  phone.value = "";
+  $("req-open").classList.add("hidden");
+  err.classList.add("hidden");
+  goHome();
 });
 
 $("done-back").addEventListener("click", (e) => {
@@ -618,6 +646,8 @@ function showStub(kind, name, time, label, leg){
   $("r-title").textContent = STATE.title || "";
   // 취소한 뒤에는 더 취소할 것이 없다.
   $("cancel-in").classList.toggle("hidden", kind === "cancelled");
+  // 첫 화면으로 돌아갔을 때 확인을 마쳤다고 알려 주기 위해 붙들어 둔다.
+  DONE = kind === "cancelled" ? null : { name: name, at: time, leg: leg || LEG };
   showOnly("result-view");
 }
 
