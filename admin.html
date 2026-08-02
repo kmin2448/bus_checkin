@@ -129,6 +129,16 @@
   li:first-child{border-top:0}
   li .nm{font-weight:700;font-size:16px;letter-spacing:-.01em}
   li .ph{font-family:var(--mono);font-size:13px;color:var(--gray);text-decoration:none}
+  /* 번호를 누르면 전화·문자를 고르게 한다. 링크가 아니라 버튼이지만
+     보기는 그대로 두려고 버튼 기본 모양을 지운다. */
+  li button.ph{height:auto;padding:0;border:0;background:transparent;font-weight:400;
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .room .rm button.tel{height:auto;padding:0;border:0;background:transparent;
+    font-family:var(--mono);font-size:12px;color:var(--gray);font-weight:400;
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+  .fr button.tel{height:auto;padding:0;border:0;background:transparent;
+    font-family:var(--mono);font-size:12px;color:var(--gray);font-weight:400;
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer}
   li .grow{flex:1;min-width:0}
   li .at{font-family:var(--mono);font-size:13px;color:var(--go);font-weight:600}
   li button{flex:none}
@@ -290,7 +300,7 @@
       </div>
       <p class="stamp" id="stamp">—</p>
 
-      <h2 class="h2row">미탑승 — 번호를 누르면 바로 전화
+      <h2 class="h2row">미탑승 — 번호를 누르면 전화 · 문자
         <button id="open-add" class="small">명단 추가</button>
         <button id="sms-all-left" class="small">전체 문자</button></h2>
       <ul id="list-left"></ul>
@@ -361,6 +371,16 @@
       나중에 종 아이콘에서 번호를 넣을 수 있습니다.</p>
 
     <div class="row"><button id="add-close">닫기</button></div>
+  </div>
+</div>
+
+<div id="ct-modal" class="mask hidden" role="dialog" aria-modal="true">
+  <div class="dialog">
+    <h3 id="ct-title">—</h3>
+    <p class="s" id="ct-sub">—</p>
+    <div class="row"><a id="ct-call" class="linkbtn" href="#">전화 걸기</a></div>
+    <div class="row"><button id="ct-sms" class="hl">문자 보내기</button></div>
+    <div class="row"><button id="ct-close">닫기</button></div>
   </div>
 </div>
 
@@ -563,9 +583,10 @@ function rowItem(r){
     s.textContent = "연락처 추가 필요";
     g.appendChild(nm); g.appendChild(s);
   }else{
-    const a = document.createElement("a"); a.className = "ph";
-    a.href = "tel:" + r.phone; a.textContent = fmtPhone(r.phone);
-    g.appendChild(nm); g.appendChild(a);
+    const b = document.createElement("button"); b.className = "ph";
+    b.textContent = fmtPhone(r.phone);
+    b.onclick = () => openContact(r.name, r.phone, "bus");
+    g.appendChild(nm); g.appendChild(b);
   }
   el.appendChild(g);
   if(r.boarded){
@@ -818,8 +839,17 @@ function roomCard(r){
       const b = document.createElement("b");
       b.textContent = "★" + m.name;
       rm.appendChild(b);
-      const ph = m.no_phone ? "연락처 없음" : fmtPhone(m.phone);
-      rm.appendChild(document.createTextNode(" (" + ph + ")" + (tag ? " " + tag : "")));
+      // 방장 번호는 눌러서 전화·문자를 고를 수 있게 한다.
+      rm.appendChild(document.createTextNode(" ("));
+      if(m.no_phone){
+        rm.appendChild(document.createTextNode("연락처 없음"));
+      }else{
+        const t = document.createElement("button"); t.className = "tel";
+        t.textContent = fmtPhone(m.phone);
+        t.onclick = () => openContact(m.name, m.phone, "room");
+        rm.appendChild(t);
+      }
+      rm.appendChild(document.createTextNode(")" + (tag ? " " + tag : "")));
     }else{
       rm.appendChild(document.createTextNode(m.name + (tag ? " " + tag : "")));
     }
@@ -1169,6 +1199,7 @@ $("req-close").onclick = closeRequests;
 $("req-modal").addEventListener("click", (e) => { if(e.target === $("req-modal")) closeRequests(); });
 document.addEventListener("keydown", (e) => {
   if(e.key !== "Escape") return;
+  if(!$("ct-modal").classList.contains("hidden")){ closeContact(); return; }
   if(!$("sms-modal").classList.contains("hidden")){ closeSms(); return; }
   if(!$("mem-modal").classList.contains("hidden")){ closeMembers(); return; }
   if(!$("rset-modal").classList.contains("hidden")){ closeRoomSet(); return; }
@@ -1235,6 +1266,32 @@ function setRoomView(v){
 }
 $("view-room").onclick = () => setRoomView("room");
 $("view-note").onclick = () => setRoomView("note");
+
+/* ---------------------------------------------------------------- 번호 누르기
+   번호를 누르면 전화가 바로 걸려서, 문자만 보내려던 참에 잘못 누르는 일이
+   있었다. 무엇을 할지 먼저 고르게 한다.
+   문자는 저장해 둔 문구를 쓸 수 있게 기존 문자 창을 그 사람 한 명으로 연다. */
+let CONTACT = null;
+
+function openContact(name, phone, kind){
+  if(!phone) return;
+  CONTACT = { name: name, phone: phone, kind: kind === "room" ? "room" : "bus" };
+  $("ct-title").textContent = name || "연락처";
+  $("ct-sub").textContent = fmtPhone(phone);
+  $("ct-call").href = "tel:" + phone;
+  $("ct-modal").classList.remove("hidden");
+}
+function closeContact(){ $("ct-modal").classList.add("hidden"); }
+
+$("ct-call").addEventListener("click", () => { closeContact(); });
+$("ct-sms").onclick = () => {
+  const c = CONTACT;
+  closeContact();
+  if(!c) return;
+  openSms(c.name, [{ name: c.name, phone: c.phone }], "list", c.kind);
+};
+$("ct-close").onclick = closeContact;
+$("ct-modal").addEventListener("click", (e) => { if(e.target === $("ct-modal")) closeContact(); });
 
 /* ---------------------------------------------------------------- 방 설정
    카드에는 자주 쓰는 "문자" 만 남기고, 인원 변경과 호수 입력은 톱니바퀴 안에 둔다.
@@ -1322,7 +1379,14 @@ function paintMembers(){
     fn.textContent = (m.is_leader ? "★" : "") + m.name +
                      (genderOf(m.gender) ? " (" + genderOf(m.gender) + ")" : "");
     const fs = document.createElement("div"); fs.className = "fs";
-    fs.textContent = m.no_phone ? "연락처 없음" : fmtPhone(m.phone);
+    if(m.no_phone){
+      fs.textContent = "연락처 없음";
+    }else{
+      const t = document.createElement("button"); t.className = "tel";
+      t.textContent = fmtPhone(m.phone);
+      t.onclick = () => openContact(m.name, m.phone, "room");
+      fs.appendChild(t);
+    }
     fi.appendChild(fn); fi.appendChild(fs);
     const ld = document.createElement("button");
     ld.className = "small";
