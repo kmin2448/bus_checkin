@@ -192,3 +192,11 @@ Supabase 프로젝트 `sudcoss-pd-exhibition` (`jqvbuqgpgmqyviqdkzvl`).
 
 `sql/` 안의 파일은 Supabase 에 순서대로 적용된 델타입니다. 이미 존재하는
 `bus_norm_phone` 같은 함수와 테이블은 전제로 두고 있습니다.
+
+### 함수 권한 주의
+
+Supabase 는 `public` 스키마에 새로 만들어지는 함수에 `anon` · `authenticated`
+EXECUTE 를 **기본으로 붙입니다**. 그래서 함수를 만들면서 `revoke all ... from
+public` 만 적어 두면 막힌 것처럼 보여도 실제로는 열려 있습니다.
+방 목록처럼 통째로 새면 안 되는 헬퍼는 `revoke execute ... from anon,
+authenticated` 로 **직접** 걷어내야 합니다(`20260807_lock_down_room_helpers.sql`).
