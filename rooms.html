@@ -254,7 +254,8 @@ function roomCard(r){
       const b = document.createElement("b");
       b.textContent = "★" + m.name;
       rm.appendChild(b);
-      rm.appendChild(document.createTextNode(" (" + fmtPhone(m.phone) + ")" + (tag ? " " + tag : "")));
+      const ph = m.no_phone ? "연락처 없음" : fmtPhone(m.phone);
+      rm.appendChild(document.createTextNode(" (" + ph + ")" + (tag ? " " + tag : "")));
     }else{
       rm.appendChild(document.createTextNode(m.name + (tag ? " " + tag : "")));
     }

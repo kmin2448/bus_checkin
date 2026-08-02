@@ -161,14 +161,7 @@
     <p id="room-err" class="err hidden"></p>
 
     <div id="room-result" class="hidden">
-      <div class="roomcard">
-        <p class="tag" id="rm-tag">내 방</p>
-        <p class="rn" id="rm-no">—</p>
-        <p class="rl hidden" id="rm-label">—</p>
-        <p class="rl hidden" id="rm-nights">—</p>
-        <div class="rule"></div>
-        <div id="rm-members"></div>
-      </div>
+      <div id="rm-cards"></div>
       <div class="gblock hidden" id="rm-keyg">
         <p class="gt">방키 수령 안내</p>
         <p class="gb" id="rm-keyg-v"></p>
@@ -651,22 +644,35 @@ function roomErr(msg){
   $("room-result").classList.add("hidden");
 }
 
-function renderRoom(d){
-  const no = (d.room_no || "").trim();
-  const label = (d.room_label || "").trim();
-  $("rm-tag").textContent = d.is_leader ? "내 방 · 방장" : "내 방";
-  $("rm-no").textContent = no || label || "—";
-  $("rm-label").textContent = label;
-  $("rm-label").classList.toggle("hidden", !(no && label));
+// 방을 두 개 이상 배정받은 사람이 있어 방마다 카드를 하나씩 그린다.
+function roomCard(r, idx, total, nights){
+  const no = (r.room_no || "").trim();
+  const label = (r.room_label || "").trim();
 
+  const card = document.createElement("div"); card.className = "roomcard";
+  const tag = document.createElement("p"); tag.className = "tag";
+  tag.textContent = (total > 1 ? "내 방 " + (idx + 1) + " / " + total : "내 방") +
+                    (r.is_leader ? " · 방장" : "");
+  const rn = document.createElement("p"); rn.className = "rn";
+  rn.textContent = no || label || "—";
+  card.appendChild(tag); card.appendChild(rn);
+
+  if(no && label){
+    const rl = document.createElement("p"); rl.className = "rl";
+    rl.textContent = label;
+    card.appendChild(rl);
+  }
   // 하루만 묵는 사람이 있어서 본인 숙박일을 같이 적어 준다.
-  const nights = [d.night1 ? "1일차" : "", d.night2 ? "2일차" : ""].filter(Boolean);
-  $("rm-nights").textContent = "숙박 — " + nights.join(" · ");
-  $("rm-nights").classList.toggle("hidden", !nights.length);
+  if(nights.length){
+    const nt = document.createElement("p"); nt.className = "rl";
+    nt.textContent = "숙박 — " + nights.join(" · ");
+    card.appendChild(nt);
+  }
 
-  const box = $("rm-members");
-  box.innerHTML = "";
-  (d.members || []).forEach(m => {
+  const rule = document.createElement("div"); rule.className = "rule";
+  card.appendChild(rule);
+
+  (r.members || []).forEach(m => {
     const row = document.createElement("div"); row.className = "rrow";
     const who = document.createElement("span"); who.className = "who2";
     who.textContent = m.name + " ";
@@ -680,12 +686,32 @@ function renderRoom(d){
       nt.textContent = m.night1 ? "1일차만" : "2일차만";
       who.appendChild(nt);
     }
-    const tel = document.createElement("a");
-    tel.href = "tel:" + m.phone;
-    tel.textContent = pretty(m.phone || "");
-    row.appendChild(who); row.appendChild(tel);
-    box.appendChild(row);
+    row.appendChild(who);
+    if(m.no_phone){
+      const s = document.createElement("span");
+      s.style.cssText = "font-size:13px;color:var(--gray)";
+      s.textContent = "연락처 없음";
+      row.appendChild(s);
+    }else{
+      const tel = document.createElement("a");
+      tel.href = "tel:" + m.phone;
+      tel.textContent = pretty(m.phone || "");
+      row.appendChild(tel);
+    }
+    card.appendChild(row);
   });
+  return card;
+}
+
+function renderRoom(d){
+  // 예전 화면 호환용으로 첫 방이 위쪽에도 담겨 오므로, rooms 가 없으면 그걸 쓴다.
+  const rooms = (d.rooms && d.rooms.length) ? d.rooms
+    : [{ room_no:d.room_no, room_label:d.room_label, is_leader:d.is_leader, members:d.members }];
+  const nights = [d.night1 ? "1일차" : "", d.night2 ? "2일차" : ""].filter(Boolean);
+
+  const box = $("rm-cards");
+  box.innerHTML = "";
+  rooms.forEach((r, i) => box.appendChild(roomCard(r, i, rooms.length, nights)));
 
   const kg = (d.key_guide || "").trim();
   const cg = (d.checkout_guide || "").trim();

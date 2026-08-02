@@ -223,6 +223,12 @@
     <h3>명단 추가/수정 요청</h3>
     <p class="s">참가자가 보낸 요청입니다. 반영하면 바로 탑승 확인을 할 수 있습니다.</p>
     <div id="req-list"></div>
+    <div id="np-wrap" class="hidden">
+      <h3 style="margin-top:18px">연락처 추가 필요</h3>
+      <p class="s">명단에는 있지만 연락처를 아직 못 받은 사람입니다.
+        번호를 넣으면 명단과 방 배정에 함께 반영되고, 본인이 탑승 확인을 할 수 있습니다.</p>
+      <div id="np-list"></div>
+    </div>
     <div class="row"><button id="req-close">닫기</button></div>
   </div>
 </div>
@@ -302,9 +308,17 @@ function rowItem(r){
   const g = document.createElement("div"); g.className = "grow";
   const nm = document.createElement("div"); nm.className = "nm";
   nm.textContent = r.name + (r.note ? " · " + r.note : "");
-  const a = document.createElement("a"); a.className = "ph";
-  a.href = "tel:" + r.phone; a.textContent = fmtPhone(r.phone);
-  g.appendChild(nm); g.appendChild(a); el.appendChild(g);
+  if(r.no_phone){
+    // 연락처를 아직 못 받은 사람. 전화 걸 곳이 없으니 링크를 만들지 않는다.
+    const s = document.createElement("span"); s.className = "ph";
+    s.textContent = "연락처 추가 필요";
+    g.appendChild(nm); g.appendChild(s);
+  }else{
+    const a = document.createElement("a"); a.className = "ph";
+    a.href = "tel:" + r.phone; a.textContent = fmtPhone(r.phone);
+    g.appendChild(nm); g.appendChild(a);
+  }
+  el.appendChild(g);
   if(r.boarded){
     const at = document.createElement("span"); at.className = "at"; at.textContent = r.at;
     const undo = document.createElement("button");
@@ -418,8 +432,10 @@ async function loadRequests(){
   let d;
   try{ d = await rpc("requests"); }catch(e){ box.textContent = "불러오지 못했습니다."; return; }
   const rows = (d && d.rows) || [];
+  const noPhone = (d && d.no_phone) || [];
   box.innerHTML = "";
-  setBadge(rows.length);
+  setBadge(rows.length + noPhone.length);
+  renderNoPhone(noPhone);
   if(!rows.length){
     const p = document.createElement("p");
     p.className = "s"; p.style.margin = "6px 0 14px";
@@ -457,6 +473,43 @@ async function loadRequests(){
     acts.appendChild(ok); acts.appendChild(no);
     d1.appendChild(tag); d1.appendChild(nm); d1.appendChild(sub); d1.appendChild(acts);
     box.appendChild(d1);
+  });
+}
+
+/* 연락처를 아직 못 받은 사람 — 요청과 같은 모양으로 띄우고,
+   번호를 넣으면 명단(양쪽 편)과 방 배정에 한꺼번에 반영한다. */
+function renderNoPhone(rows){
+  const wrap = $("np-wrap"), box = $("np-list");
+  wrap.classList.toggle("hidden", !rows.length);
+  box.innerHTML = "";
+  rows.forEach(r => {
+    const el = document.createElement("div"); el.className = "reqitem";
+    const tag = document.createElement("span");
+    tag.className = "tag fix"; tag.textContent = "연락처 없음";
+    const nm = document.createElement("div"); nm.className = "nm";
+    nm.textContent = r.name + (r.note ? " · " + r.note : "");
+    const sub = document.createElement("div"); sub.className = "sub";
+    sub.textContent = "번호가 없어 본인 확인을 할 수 없습니다.";
+    const acts = document.createElement("div"); acts.className = "acts";
+    const ok = document.createElement("button");
+    ok.className = "small hl"; ok.textContent = "번호 넣기";
+    ok.onclick = async () => {
+      const v = prompt(r.name + " 연락처 입력", "");
+      if(v === null) return;
+      const digits = v.replace(/\D/g, "");
+      if(digits.length < 10){ alert("휴대폰 번호를 다시 확인해 주세요."); return; }
+      ok.disabled = true;
+      let res;
+      try{ res = await rpc("set_phone", { key: r.key, phone: digits }); }catch(e){ res = null; }
+      ok.disabled = false;
+      if(!res || res.status === "invalid"){ alert("휴대폰 번호를 다시 확인해 주세요."); return; }
+      if(res.status === "exists"){ alert("이미 명단에 있는 번호입니다."); return; }
+      if(res.status === "gone"){ alert("이미 처리된 사람입니다."); }
+      await loadRequests(); load();
+    };
+    acts.appendChild(ok);
+    el.appendChild(tag); el.appendChild(nm); el.appendChild(sub); el.appendChild(acts);
+    box.appendChild(el);
   });
 }
 

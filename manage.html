@@ -333,9 +333,11 @@ function rowByHeader(cells, m, sheet){
   const phone = fixPhone(get(m.phone));
   const name = get(m.name);
   if(!name) return null;
-  if(!isPhone(phone)) return { name: name, phone: "", bad: true };
-  const row = { name: name, phone: phone,
+  // 통합 시트에서는 번호가 없어도 명단에 올린다. 번호는 나중에 운영자가 넣는다.
+  if(!isPhone(phone) && !sheet) return { name: name, phone: "", bad: true };
+  const row = { name: name, phone: isPhone(phone) ? phone : "",
                 note: joinNote(get(m.univ), get(m.team), get(m.note)) };
+  if(!row.phone) row.no_phone = true;
   if(m.room_label >= 0) row.room_label = get(m.room_label);
   if(m.room_no >= 0)    row.room_no = get(m.room_no);
   if(m.leader >= 0)     row.is_leader = truthy(get(m.leader));
@@ -360,6 +362,46 @@ function parseGrid(grid){
     }
   }
   return { rows: grid.map(cellsToRow).filter(Boolean), sheet: false, bad: [] };
+}
+
+/* 같은 사람이 여러 줄에 걸쳐 있으면(방을 두 개 잡아 둔 경우) 한 사람으로 묶고
+   방만 여러 개로 쌓는다. 번호가 없는 사람은 소속+이름으로 가르는데,
+   서버가 붙이는 자리표 번호와 같은 기준이라 다시 올려도 같은 사람으로 이어진다. */
+function personKey(r){
+  return r.phone || ("?" + ((r.note || "").trim() || "-") + "/" + (r.name || "").trim());
+}
+
+function groupPeople(rows){
+  // 시트에 없는 열은 아예 보내지 않는다. 보내면 서버가 "빈 값"으로 덮어쓴다.
+  const has = (k) => rows.some(r => k in r);
+  const hasN1 = has("night1"), hasN2 = has("night2");
+  const hasRoom = has("room_label") || has("room_no");
+
+  const map = {}, order = [];
+  rows.forEach(r => {
+    const k = personKey(r);
+    let p = map[k];
+    if(!p){
+      p = map[k] = { name: r.name, phone: r.phone, note: r.note, out: false, back: false };
+      if(r.no_phone) p.no_phone = true;
+      if(hasN1) p.night1 = false;
+      if(hasN2) p.night2 = false;
+      if(hasRoom) p.rooms = [];
+      order.push(k);
+    }
+    p.out  = p.out  || !!r.out;
+    p.back = p.back || !!r.back;
+    if(hasN1) p.night1 = p.night1 || !!r.night1;
+    if(hasN2) p.night2 = p.night2 || !!r.night2;
+    if(!hasRoom) return;
+    const label = (r.room_label || "").trim(), no = (r.room_no || "").trim();
+    if(!label && !no) return;
+    const rk = label || no;
+    const had = p.rooms.filter(x => (x.label || x.no) === rk)[0];
+    if(had) had.is_leader = had.is_leader || !!r.is_leader;
+    else p.rooms.push({ label: label, no: no, is_leader: !!r.is_leader });
+  });
+  return order.map(k => map[k]);
 }
 
 function parseText(text){
@@ -549,49 +591,54 @@ function tag(text, on, bed){
   return s;
 }
 
-function showSheet(rows, name, bad){
-  SHEET = rows;
-  const n = (f) => rows.filter(f).length;
-  const nOut = n(r => r.out), nBack = n(r => r.back);
-  const n1 = n(r => r.night1), n2 = n(r => r.night2);
-  const nRoom = n(r => (r.room_label || "").trim() || (r.room_no || "").trim());
-  const nNone = n(r => !r.out && !r.back);
+const roomNames = (p) => (p.rooms || []).map(r => r.label || r.no);
 
-  // 번호가 같은 줄은 한 사람으로 합쳐진다. 시트가 잘못돼 방 배정이 하나
-  // 날아가는 일이 잦으므로 올리기 전에 짚어 준다.
-  const seen = {}, dup = [];
-  rows.forEach(r => {
-    if(seen[r.phone]) { if(dup.indexOf(r.phone) < 0) dup.push(r.phone); }
-    else seen[r.phone] = true;
-  });
-  const dupNames = dup.map(p => rows.filter(r => r.phone === p).map(r => r.name).join("=") );
+function showSheet(people, name, bad){
+  SHEET = people;
+  const n = (f) => people.filter(f).length;
+  const nOut = n(p => p.out), nBack = n(p => p.back);
+  const n1 = n(p => p.night1), n2 = n(p => p.night2);
+  const nRoom = n(p => roomNames(p).length);
+  const nNone = n(p => !p.out && !p.back);
+  const noPhone = people.filter(p => p.no_phone);
+  const multi = people.filter(p => roomNames(p).length > 1);
+  const rooms = people.reduce((s, p) => s + roomNames(p).length, 0);
 
   $("sheet-h").textContent = name ? "통합 시트 — " + name : "통합 시트";
   $("sheet-sum").innerHTML =
-    "모두 <b>" + rows.length + "명</b><br>" +
+    "모두 <b>" + people.length + "명</b><br>" +
     "가는차 <b>" + nOut + "명</b> · 오는차 <b>" + nBack + "명</b>" +
     (nNone ? " · 버스 안 탐 <b>" + nNone + "명</b>" : "") + "<br>" +
-    "1일차 숙박 <b>" + n1 + "명</b> · 2일차 숙박 <b>" + n2 + "명</b> · 방 배정 <b>" + nRoom + "명</b>";
-  const warn = [];
-  if(bad.length) warn.push("번호가 없어 건너뜁니다 — " + bad.join(", "));
-  if(dupNames.length) warn.push("번호가 겹쳐 한 사람으로 합쳐집니다 — " + dupNames.join(", "));
-  $("sheet-warn").textContent = warn.join(" / ");
-  $("sheet-warn").classList.toggle("hidden", !warn.length);
+    "1일차 숙박 <b>" + n1 + "명</b> · 2일차 숙박 <b>" + n2 + "명</b> · " +
+    "방 배정 <b>" + nRoom + "명</b> / <b>" + rooms + "실</b>";
+
+  const note = [];
+  if(multi.length)
+    note.push("방을 두 개 이상 쓰는 사람 — " +
+      multi.map(p => p.name + "(" + roomNames(p).join(", ") + ")").join(", "));
+  if(noPhone.length)
+    note.push("연락처 없이 올라갑니다 — " + noPhone.map(p => p.name).join(", ") +
+      " · 운영자 화면에 연락처 추가 필요로 뜹니다");
+  if(bad && bad.length)
+    note.push("이름이 없어 건너뜁니다 — " + bad.length + "줄");
+  $("sheet-warn").textContent = note.join(" / ");
+  $("sheet-warn").classList.toggle("hidden", !note.length);
 
   const box = $("sheet-prev");
   box.innerHTML = "";
-  rows.forEach(r => {
+  people.forEach(p => {
     const el = document.createElement("div"); el.className = "prow";
     const nm = document.createElement("div"); nm.className = "pn";
-    nm.textContent = r.name + " ";
+    nm.textContent = p.name + " ";
     const sub = document.createElement("span");
-    sub.textContent = [r.note, r.room_label].filter(Boolean).join(" · ");
+    sub.textContent = [p.note, roomNames(p).join(" + "),
+                       p.no_phone ? "연락처 없음" : ""].filter(Boolean).join(" · ");
     nm.appendChild(sub);
     const fl = document.createElement("div"); fl.className = "pf";
-    fl.appendChild(tag("가", r.out));
-    fl.appendChild(tag("오", r.back));
-    fl.appendChild(tag("1박", r.night1, true));
-    fl.appendChild(tag("2박", r.night2, true));
+    fl.appendChild(tag("가", p.out));
+    fl.appendChild(tag("오", p.back));
+    fl.appendChild(tag("1박", p.night1, true));
+    fl.appendChild(tag("2박", p.night2, true));
     el.appendChild(nm); el.appendChild(fl);
     box.appendChild(el);
   });
@@ -632,7 +679,7 @@ async function readFile(f){
     }
     if(got.sheet){
       setRows([]);
-      showSheet(got.rows, f.name, got.bad);
+      showSheet(groupPeople(got.rows), f.name, got.bad);
       msg.className = "hint good";
       msg.textContent = "아래에서 확인한 뒤 반영 버튼을 누르세요.";
       return;
@@ -668,8 +715,9 @@ $("sheet-down").onclick = async () => {
   if(!d || d.status !== "ok"){ alert("불러오지 못했습니다."); return; }
   const rows = d.rows || [];
   if(!rows.length){ alert("아직 명단이 없습니다."); return; }
+  // 방을 두 개 쓰는 사람은 두 줄로 나온다. 그대로 다시 올리면 다시 묶인다.
   const aoa = [SHEET_COLS].concat(rows.map(r => [
-    r.note || "", r.name || "", fmtPhone(r.phone) || "",
+    r.note || "", r.name || "", r.no_phone ? "입력필요" : (fmtPhone(r.phone) || ""),
     r.room_label || "", r.room_no || "", mark(r.is_leader),
     mark(r.night1), mark(r.night2), mark(r.rides_out), mark(r.rides_back)
   ]));
