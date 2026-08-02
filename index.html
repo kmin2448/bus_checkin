@@ -348,6 +348,27 @@ let PICKED = "";
    기기를 돌려 쓰므로 화면에만 두고 저장하지는 않는다. */
 let DONE = null;
 
+/* 운영자가 켠 것만 보여 준다. 버스는 편이 하나라도 켜져 있으면 열린 것으로 본다.
+   room_open 을 안 주는 예전 서버에서는 숙소 안내가 늘 열려 있는 것으로 본다. */
+function busOn(){ return openLegs().length > 0; }
+function roomOn(){ return STATE.room_open !== false; }
+
+// 켜진 게 하나뿐이면 고르는 화면을 건너뛰고 바로 그 화면으로 들어간다.
+function entryView(){
+  const b = busOn(), r = roomOn();
+  if(b && r) return "home";
+  if(b) return "bus";
+  if(r) return "room";
+  return "closed";
+}
+
+function enter(where){
+  if(where === "bus")  return openBusView();
+  if(where === "room") return openRoomView();
+  if(where === "closed"){ PICKED = ""; paintHome(); showOnly("closed-view"); return; }
+  goHome();
+}
+
 function goHome(){
   PICKED = "";
   paintHome();
@@ -355,8 +376,16 @@ function goHome(){
 }
 
 function paintHome(){
-  const open = openLegs().length > 0;
+  const open = busOn();
   const done = open && DONE && DONE.leg === LEG;
+  // 카드는 켜진 것만. 하나뿐이면 첫 화면 자체를 건너뛰므로 링크도 감춘다.
+  const solo = entryView() !== "home";
+  $("pick-bus").classList.toggle("hidden", !open);
+  $("pick-room").classList.toggle("hidden", !roomOn());
+  ["bus-home","closed-home","room-back","result-home"].forEach(id =>
+    $(id).classList.toggle("hidden", solo));
+  $("room-open").classList.toggle("hidden", !roomOn());
+  $("room-open2").classList.toggle("hidden", !roomOn());
   $("pick-bus").classList.toggle("off", !open);
   $("pick-bus").classList.toggle("done", !!done);
   $("pick-bus-done").classList.toggle("hidden", !done);
@@ -410,12 +439,19 @@ async function loadStatus(reset){
   syncLeg();
   paint();
   const legs = openLegs();
+  paintHome();   // 카드와 "첫 화면으로" 링크 노출은 어느 경로로 오든 맞춰 둔다
   if(reset){
-    if(PICKED === "bus"){ openBusView(); }
-    else goHome();
+    if(PICKED === "bus" && busOn()) openBusView();
+    else if(PICKED === "room" && roomOn()) openRoomView();
+    else enter(entryView());
     return;
   }
-  paintHome();
+  // 보던 쪽이 꺼졌으면 대기 화면으로. 첫 화면에 있는데 남은 게 하나면 그리로.
+  if(PICKED === "room" && !roomOn()){ showOnly("closed-view"); return; }
+  if(PICKED === ""){
+    if(!$("home-view").classList.contains("hidden") && entryView() !== "home") enter(entryView());
+    return;
+  }
   if(PICKED !== "bus") return;   // 숙소 쪽을 보고 있으면 건드리지 않는다
   if(!legs.length && !$("form-view").classList.contains("hidden")) showOnly("closed-view");
   else if(legs.length && !$("closed-view").classList.contains("hidden")){ showOnly("form-view"); syncGo(); }
@@ -829,6 +865,12 @@ async function loadRoom(){
   try{
     const data = await rpc("bus_room_info", { p_phone: d });
     if(data.status === "ok") renderRoom(data);
+    else if(data.status === "closed"){
+      // 그 사이 운영자가 숙소 안내를 닫았다. 화면 상태를 다시 맞춘다.
+      STATE.room_open = false;
+      roomErr("지금은 숙소 방 안내가 닫혀 있습니다. 인솔자에게 문의해 주세요.");
+      loadStatus(false);
+    }
     else if(data.status === "none") roomErr("아직 방 배정이 없습니다. 인솔자에게 문의해 주세요.");
     else if(data.status === "not_found") roomErr("명단에서 이 번호를 찾지 못했습니다. 번호를 다시 확인해 주세요.");
     else roomErr("번호를 다시 확인해 주세요.");

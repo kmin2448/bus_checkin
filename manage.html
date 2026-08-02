@@ -61,13 +61,6 @@
   .drop b{display:block;font-size:15px;font-weight:700}
   .drop span{font-size:13px;color:var(--gray)}
   #file{display:none}
-  .grid{display:grid;grid-template-columns:1fr 1.35fr .8fr 34px;gap:6px;align-items:center}
-  .colhead{font-size:11px;font-weight:700;color:var(--gray);margin:14px 0 6px;padding:0 2px}
-  .entry{margin-bottom:6px}
-  .entry input{width:100%;min-width:0;height:44px;padding:0 8px;font-size:16px;color:var(--ink);
-    border:1px solid var(--btn);border-radius:var(--r);background:#fff}
-  .entry input.ph{font-family:var(--mono);font-size:15px;text-align:center}
-  .entry .del{padding:0;font-size:15px;font-weight:400;color:var(--gray)}
   .extrahead{margin-top:30px;border-top:1px solid var(--hair);padding-top:18px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 6px 0 11px;
@@ -92,6 +85,20 @@
     font-weight:700;text-align:center;background:#EEF0F3;color:#9AA1AB}
   .tag.on{background:#E4EDFF;color:var(--blue)}
   .tag.bed.on{background:#E1F3E9;color:var(--go)}
+  .cols{margin-top:10px;background:#fff;border:1px solid var(--hair);border-radius:var(--r);
+    padding:10px 14px}
+  .cols summary{font-size:13px;font-weight:700;color:var(--navy);cursor:pointer;padding:4px 0}
+  .cols .ch{margin:10px 0;font-size:12px;line-height:1.7;color:var(--gray)}
+  .cols .ch b{color:var(--ink)}
+  .coltab{width:100%;border-collapse:collapse;font-size:12px;line-height:1.6}
+  .coltab th{text-align:left;font-weight:700;color:var(--gray);padding:6px 4px;
+    border-bottom:1px solid var(--btn)}
+  .coltab td{padding:7px 4px;border-bottom:1px solid var(--hair);vertical-align:top;color:var(--gray)}
+  .coltab td:first-child{width:38%;color:var(--ink);font-weight:600}
+  .coltab td b{color:var(--ink)}
+  .coltab td.off{color:#9AA1AB;font-weight:400}
+  .coltab .req{display:inline-block;font-size:10px;font-weight:800;color:var(--warn)}
+  .coltab .cs{color:#9AA1AB}
   .hidden{display:none !important}
 </style>
 </head>
@@ -137,31 +144,55 @@
       <button id="sheet-form" class="small">빈 양식 내려받기</button>
       <button id="sheet-down" class="small">지금 명단 내려받기</button>
     </div>
-    <p class="hint">소속은 <b>소속 대학 + 팀명</b>을 합쳐서 한 값으로 관리합니다.
-      학과 · 학번 · 성별 · 비고 열은 읽지 않고 넘어갑니다.<br>
+    <p class="hint">소속은 <b>소속 대학 + 팀명</b>을 합쳐서 한 값으로 관리합니다.<br>
       버스를 타지 않고 숙박만 하는 사람도 함께 올라가 숙소 안내를 받습니다.</p>
 
-    <h2>한 편만 손보기</h2>
+    <details class="cols">
+      <summary>엑셀 열 제목 규칙 보기</summary>
+      <p class="ch">첫 줄이 열 제목입니다. <b>제목에 아래 문구가 들어 있으면</b> 그 열로 읽습니다.
+        (예: "가는차 탑승", "출발 8/10" 모두 가는 편 탑승으로 읽힙니다.)
+        열 순서는 상관없고, 표에 없는 열은 건너뜁니다.</p>
+      <table class="coltab">
+        <tr><th>읽는 값</th><th>제목에 들어가야 하는 문구</th></tr>
+        <tr><td><b>이름</b> <span class="req">필수</span></td><td>이름 · 성명 · name</td></tr>
+        <tr><td><b>연락처</b> <span class="req">필수</span></td>
+            <td>연락처 · 휴대 · 전화 · 폰 · 번호 · phone<br>
+              <span class="cs">칸이 비어 있어도 됩니다 — 연락처 추가 필요로 올라갑니다</span></td></tr>
+        <tr><td>소속 대학</td><td>대학 · 학교 · 기관</td></tr>
+        <tr><td>팀명</td><td>팀명 · 팀 · 조명<br>
+              <span class="cs">위 둘을 합쳐 소속 한 값이 됩니다</span></td></tr>
+        <tr><td>소속 (한 열로 쓸 때)</td><td>소속 · 팀 · 조 · 그룹<br>
+              <span class="cs">대학 · 팀명 열이 없을 때만 씁니다</span></td></tr>
+        <tr><td>가는 편 탑승</td><td>탑승 · 버스 · 승차 · 출발 · 복귀 중 하나 <b>+</b> 가는 · 출발</td></tr>
+        <tr><td>오는 편 탑승</td><td>탑승 · 버스 · 승차 · 출발 · 복귀 중 하나 <b>+</b> 오는 · 복귀 · 귀가</td></tr>
+        <tr><td>1일차 숙박</td><td>숙박 · 투숙 · 숙소 <b>+</b> 1 · 첫</td></tr>
+        <tr><td>2일차 숙박</td><td>숙박 · 투숙 · 숙소 <b>+</b> 2 · 둘째 · 이틀</td></tr>
+        <tr><td>방배정</td><td>배정 · 룸 · room · 방</td></tr>
+        <tr><td>객실번호</td><td>호수 · 호실 · 객실</td></tr>
+        <tr><td>방장</td><td>방장 · 리더 · 인솔 · leader</td></tr>
+        <tr><td class="off">안 읽는 열</td><td class="off">학과 · 전공 이 들어간 제목은 건너뜁니다.
+              학번 · 성별 · 비고처럼 표에 없는 제목도 넘어갑니다.</td></tr>
+      </table>
+      <p class="ch">탑승 · 숙박 · 방장 칸은 <b>O</b> 말고 아무 말이나 적혀 있어도 표시로 봅니다.
+        비었거나 <b>- · X · 없음</b>이면 아니라고 봅니다.</p>
+    </details>
+
+    <h2>편별 작업</h2>
     <div class="tabs">
       <button id="tab-out" class="on">가는 편</button>
       <button id="tab-back">오는 편</button>
     </div>
-    <p class="hint" style="margin-top:0" id="paste-head">아래 칸과 버튼은 지금 고른 편에만 적용됩니다.</p>
-
-    <div class="grid colhead"><span>이름</span><span>휴대폰 번호</span><span>소속 · 팀</span><span></span></div>
-    <div id="rows"></div>
+    <p class="hint" style="margin-top:0" id="paste-head">아래 버튼은 지금 고른 편에만 적용됩니다.</p>
     <div class="row">
-      <button id="addrow" class="small">줄 추가</button>
-      <button id="clearrows" class="small">입력 지우기</button>
+      <button id="copy">반대 편으로 복사</button>
+      <button id="reset" class="small">탑승 기록 리셋</button>
     </div>
-    <p class="hint" id="rowcount"></p>
-    <p class="hint">엑셀에서 여러 줄을 복사해 이름 칸에 붙여넣으면 칸이 자동으로 채워집니다.</p>
+    <p class="hint">복사는 명단만 옮기고 탑승 기록은 가져가지 않습니다.</p>
 
-    <div class="row">
-      <button id="add" class="hl">명단 추가</button>
-      <button id="replace">명단 덮어쓰기</button>
-      <button id="copy">반대 편 복사</button>
-    </div>
+    <p class="hint" style="margin-top:22px">
+      <b>한 명씩 넣고 빼는 일</b>은 보고 있던 화면에서 바로 합니다 —
+      탑승 명단은 <a href="admin.html">탑승 현황</a>에서,
+      방 배정은 <a href="rooms.html">방키 수불</a>에서 하세요.</p>
 
     <div class="row extrahead"><button id="extra-toggle">추가 설정 열기</button></div>
 
@@ -188,11 +219,10 @@
 
       <h2>정리</h2>
       <div class="row">
-        <button id="reset" class="small">기록 리셋</button>
-        <button id="purge" class="small danger">명단 삭제</button>
+        <button id="purge" class="small danger">이 편 명단 삭제</button>
         <button id="purge-all" class="small danger">전체 삭제</button>
       </div>
-      <p class="hint">기록 리셋·명단 삭제는 지금 선택한 편에만 적용됩니다. 행사가 끝나면 전체 삭제로 번호를 남기지 마세요.</p>
+      <p class="hint">명단 삭제는 지금 선택한 편에만 적용됩니다. 행사가 끝나면 전체 삭제로 번호를 남기지 마세요.</p>
 
       <h2>설정</h2>
       <input id="title-input" type="text" placeholder="행사 이름">
@@ -404,87 +434,6 @@ function groupPeople(rows){
   return order.map(k => map[k]);
 }
 
-function parseText(text){
-  const grid = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-    .map(l => l.split(/\t|,|\s{2,}/));
-  return parseGrid(grid).rows;
-}
-
-const rowsEl = $("rows");
-
-function addRow(name, phone, note, focus, extra){
-  const div = document.createElement("div");
-  div.className = "grid entry";
-  // 숙박 열(임시배정명·호수·방장)은 칸으로 보여 주지 않고 줄에 붙여 뒀다가
-  // 올릴 때 같이 보낸다. 손으로 추가한 줄에는 없다.
-  if(extra) div._room = extra;
-  const a = document.createElement("input");
-  a.placeholder = "홍길동"; a.value = name || "";
-  const b = document.createElement("input");
-  b.className = "ph"; b.type = "tel"; b.inputMode = "numeric";
-  b.placeholder = "010-1234-5678"; b.value = phone || "";
-  const c = document.createElement("input");
-  c.placeholder = "강원대학교 딸깍"; c.value = note || "";
-  const del = document.createElement("button");
-  del.className = "del"; del.textContent = "✕"; del.title = "줄 삭제";
-  del.onclick = () => { div.remove(); ensureBlank(); countRows(); };
-  [a,b,c].forEach(i => i.addEventListener("input", () => { ensureBlank(); countRows(); }));
-  div.appendChild(a); div.appendChild(b); div.appendChild(c); div.appendChild(del);
-  rowsEl.appendChild(div);
-  if(focus) a.focus();
-  return div;
-}
-
-function entries(){ return Array.from(rowsEl.querySelectorAll(".entry")); }
-
-function rowValues(div){
-  const i = div.querySelectorAll("input");
-  const v = { name: i[0].value.trim(), phone: fixPhone(i[1].value), note: i[2].value.trim() };
-  if(div._room) Object.assign(v, div._room);
-  return v;
-}
-
-function ensureBlank(){
-  const list = entries();
-  if(!list.length){ addRow(); return; }
-  const v = rowValues(list[list.length - 1]);
-  if(v.name || v.phone || v.note) addRow();
-}
-
-function getRows(){
-  return entries().map(rowValues).filter(v => v.name && isPhone(v.phone));
-}
-
-function countRows(){
-  const all = entries().map(rowValues).filter(v => v.name || v.phone || v.note);
-  const ok = all.filter(v => v.name && isPhone(v.phone));
-  const roomed = ok.filter(v => "room_label" in v || "room_no" in v || "is_leader" in v).length;
-  $("rowcount").textContent = all.length
-    ? ok.length + "명 입력됨" +
-      (roomed ? " · 숙박 정보 " + roomed + "명 포함" : "") +
-      (all.length > ok.length ? " · " + (all.length - ok.length) + "줄은 이름이나 번호가 비어 있음" : "")
-    : "";
-}
-
-function setRows(list){
-  rowsEl.innerHTML = "";
-  list.forEach(r => {
-    let extra = null;
-    if("room_label" in r || "room_no" in r || "is_leader" in r){
-      extra = {};
-      if("room_label" in r) extra.room_label = r.room_label;
-      if("room_no" in r)    extra.room_no = r.room_no;
-      if("is_leader" in r)  extra.is_leader = !!r.is_leader;
-    }
-    addRow(r.name, fmtPhone(r.phone), r.note, false, extra);
-  });
-  addRow();
-  countRows();
-}
-
-$("addrow").onclick = () => addRow("", "", "", true);
-$("clearrows").onclick = () => { setRows([]); $("file-msg").textContent = ""; };
-
 $("extra-toggle").onclick = () => {
   const box = $("extra");
   const willOpen = box.classList.contains("hidden");
@@ -562,21 +511,12 @@ $("group-add").onclick = async () => {
 };
 $("group-in").addEventListener("keydown", e => { if(e.key === "Enter") $("group-add").click(); });
 
-rowsEl.addEventListener("paste", (e) => {
-  const text = (e.clipboardData || window.clipboardData).getData("text");
-  if(!text || !/\n|\t/.test(text)) return;
-  e.preventDefault();
-  const parsed = parseText(text);
-  if(!parsed.length) return;
-  setRows(getRows().concat(parsed));
-  $("file-msg").className = "hint good";
-  $("file-msg").textContent = parsed.length + "명을 붙여넣었습니다. 확인 후 넣기 버튼을 누르세요.";
-});
-
 /* ---------------------------------------------------------------- 통합 시트
    읽은 시트를 바로 올리지 않고 먼저 보여 준다. 편이 갈리는 업로드라
    무엇이 어디로 가는지 눈으로 확인한 뒤 누르게 한다. */
 let SHEET = [];
+// "sheet" = 통합 시트(편이 갈린다) / "leg" = 탑승·숙박 열이 없어 지금 편에만 올린다
+let SHEET_MODE = "sheet";
 
 function clearSheet(){
   SHEET = [];
@@ -591,7 +531,10 @@ function tag(text, on, bed){
   return s;
 }
 
-const roomNames = (p) => (p.rooms || []).map(r => r.label || r.no);
+// 통합 시트는 rooms 배열, 편 하나짜리 시트는 room_label / room_no 한 쌍이다.
+const roomNames = (p) => p.rooms
+  ? p.rooms.map(r => r.label || r.no)
+  : [((p.room_label || "").trim() || (p.room_no || "").trim())].filter(Boolean);
 
 function showSheet(people, name, bad){
   SHEET = people;
@@ -604,13 +547,19 @@ function showSheet(people, name, bad){
   const multi = people.filter(p => roomNames(p).length > 1);
   const rooms = people.reduce((s, p) => s + roomNames(p).length, 0);
 
-  $("sheet-h").textContent = name ? "통합 시트 — " + name : "통합 시트";
-  $("sheet-sum").innerHTML =
-    "모두 <b>" + people.length + "명</b><br>" +
-    "가는차 <b>" + nOut + "명</b> · 오는차 <b>" + nBack + "명</b>" +
-    (nNone ? " · 버스 안 탐 <b>" + nNone + "명</b>" : "") + "<br>" +
-    "1일차 숙박 <b>" + n1 + "명</b> · 2일차 숙박 <b>" + n2 + "명</b> · " +
-    "방 배정 <b>" + nRoom + "명</b> / <b>" + rooms + "실</b>";
+  const legOnly = SHEET_MODE === "leg";
+  $("sheet-h").textContent = (legOnly ? legLabel(LEG) + " 명단" : "통합 시트") +
+                             (name ? " — " + name : "");
+  $("sheet-sum").innerHTML = legOnly
+    ? "모두 <b>" + people.length + "명</b><br>" +
+      "탑승 · 숙박 열이 없어 <b>" + legLabel(LEG) + " 명단</b>으로만 올라갑니다." +
+      (nRoom ? "<br>방 배정 <b>" + nRoom + "명</b> / <b>" + rooms + "실</b>" : "")
+    : "모두 <b>" + people.length + "명</b><br>" +
+      "가는차 <b>" + nOut + "명</b> · 오는차 <b>" + nBack + "명</b>" +
+      (nNone ? " · 버스 안 탐 <b>" + nNone + "명</b>" : "") + "<br>" +
+      "1일차 숙박 <b>" + n1 + "명</b> · 2일차 숙박 <b>" + n2 + "명</b> · " +
+      "방 배정 <b>" + nRoom + "명</b> / <b>" + rooms + "실</b>";
+  $("sheet-replace").textContent = legOnly ? legLabel(LEG) + " 덮어쓰기" : "전체 덮어쓰기";
 
   const note = [];
   if(multi.length)
@@ -620,7 +569,8 @@ function showSheet(people, name, bad){
     note.push("연락처 없이 올라갑니다 — " + noPhone.map(p => p.name).join(", ") +
       " · 운영자 화면에 연락처 추가 필요로 뜹니다");
   if(bad && bad.length)
-    note.push("이름이 없어 건너뜁니다 — " + bad.length + "줄");
+    note.push((legOnly ? "번호가 없어" : "이름이 없어") + " 건너뜁니다 — " +
+              bad.filter(Boolean).join(", ") || bad.length + "줄");
   $("sheet-warn").textContent = note.join(" / ");
   $("sheet-warn").classList.toggle("hidden", !note.length);
 
@@ -635,10 +585,15 @@ function showSheet(people, name, bad){
                        p.no_phone ? "연락처 없음" : ""].filter(Boolean).join(" · ");
     nm.appendChild(sub);
     const fl = document.createElement("div"); fl.className = "pf";
-    fl.appendChild(tag("가", p.out));
-    fl.appendChild(tag("오", p.back));
-    fl.appendChild(tag("1박", p.night1, true));
-    fl.appendChild(tag("2박", p.night2, true));
+    if(legOnly){
+      // 편이 갈릴 일이 없으니 방장 표시만 보여 준다.
+      fl.appendChild(tag("방장", !!p.is_leader, true));
+    }else{
+      fl.appendChild(tag("가", p.out));
+      fl.appendChild(tag("오", p.back));
+      fl.appendChild(tag("1박", p.night1, true));
+      fl.appendChild(tag("2박", p.night2, true));
+    }
     el.appendChild(nm); el.appendChild(fl);
     box.appendChild(el);
   });
@@ -647,14 +602,21 @@ function showSheet(people, name, bad){
 
 async function applySheet(mode){
   if(!SHEET.length) return;
-  if(mode === "replace" &&
-     !confirm("가는 편 · 오는 편 명단과 숙박 정보를 모두 지우고 이 시트 " + SHEET.length +
-              "명으로 다시 채웁니다. 탑승 기록과 방키 기록도 함께 지워집니다.")) return;
-  await rpc("upload_sheet", { mode: mode, rows: SHEET });
+  const legOnly = SHEET_MODE === "leg";
+  if(mode === "replace"){
+    const q = legOnly
+      ? legLabel(LEG) + " 명단을 이 파일 " + SHEET.length + "명으로 덮어씁니다. " +
+        "기존 명단과 탑승 기록은 지워집니다."
+      : "가는 편 · 오는 편 명단과 숙박 정보를 모두 지우고 이 시트 " + SHEET.length +
+        "명으로 다시 채웁니다. 탑승 기록과 방키 기록도 함께 지워집니다.";
+    if(!confirm(q)) return;
+  }
+  await rpc(legOnly ? "upload" : "upload_sheet", { mode: mode, rows: SHEET });
   const n = SHEET.length;
   clearSheet();
   $("file-msg").className = "hint good";
-  $("file-msg").textContent = n + "명을 통합 시트로 반영했습니다.";
+  $("file-msg").textContent = n + "명을 " +
+    (legOnly ? legLabel(LEG) + " 명단에 넣었습니다." : "통합 시트로 반영했습니다.");
   load();
 }
 
@@ -677,18 +639,11 @@ async function readFile(f){
       msg.textContent = "이름과 휴대폰 번호를 찾지 못했습니다. 첫 시트에 두 열이 있는지 확인해 주세요.";
       return;
     }
-    if(got.sheet){
-      setRows([]);
-      showSheet(groupPeople(got.rows), f.name, got.bad);
-      msg.className = "hint good";
-      msg.textContent = "아래에서 확인한 뒤 반영 버튼을 누르세요.";
-      return;
-    }
-    clearSheet();
-    setRows(got.rows);
+    // 통합 시트는 사람 단위로 묶고, 그렇지 않은 시트는 읽은 줄 그대로 지금 편에.
+    SHEET_MODE = got.sheet ? "sheet" : "leg";
+    showSheet(got.sheet ? groupPeople(got.rows) : got.rows, f.name, got.bad);
     msg.className = "hint good";
-    msg.textContent = f.name + " — " + got.rows.length + "명을 읽었습니다. " +
-      "탑승 · 숙박 열이 없어 " + legLabel(LEG) + " 명단으로만 올라갑니다.";
+    msg.textContent = "아래에서 확인한 뒤 반영 버튼을 누르세요.";
   }catch(e){
     msg.className = "hint bad";
     msg.textContent = "파일을 열지 못했습니다. xlsx로 저장해 다시 시도해 주세요. (csv는 UTF-8로 저장)";
@@ -792,19 +747,6 @@ async function setLeg(leg){
 $("tab-out").onclick = () => setLeg("out");
 $("tab-back").onclick = () => setLeg("back");
 
-async function upload(mode){
-  const rows = getRows();
-  if(!rows.length){ alert("이름과 휴대폰 번호를 넣어 주세요."); return; }
-  if(mode === "replace" && !confirm(legLabel(LEG) + " 명단을 " + rows.length + "명으로 덮어씁니다. 기존 명단과 탑승 기록은 지워집니다.")) return;
-  await rpc("upload", { mode: mode, rows: rows });
-  setRows([]);
-  $("file-msg").className = "hint good";
-  $("file-msg").textContent = rows.length + "명을 " + legLabel(LEG) + " 명단에 넣었습니다.";
-  load();
-}
-
-$("add").onclick = () => upload("add");
-$("replace").onclick = () => upload("replace");
 $("copy").onclick = async () => {
   const other = LEG === "out" ? "오는 편" : "가는 편";
   if(!confirm(legLabel(LEG) + " 명단을 " + other + "으로 복사합니다. 탑승 기록은 복사되지 않습니다.")) return;
@@ -839,7 +781,7 @@ async function enter(){
   localStorage.setItem("bus_admin_code", CODE);
   $("gate").classList.add("hidden");
   $("panel").classList.remove("hidden");
-  setRows([]);
+  clearSheet();
   render(d);
 }
 $("enter").onclick = enter;

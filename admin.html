@@ -121,6 +121,22 @@
   .dialog.sms{text-align:left}
   .dialog.sms h3,.dialog.sms .s{text-align:left}
   .fld{display:block;font-size:12px;font-weight:700;color:var(--gray);margin:16px 0 6px}
+  /* 한 명 추가 모달 */
+  .dialog.add{text-align:left}
+  .dialog.add h3,.dialog.add .s{text-align:left}
+  .dialog input[type=text],.dialog input[type=tel]{width:100%;height:44px;padding:0 12px;
+    border:1px solid var(--btn);border-radius:var(--r);background:#fff;font-family:inherit;
+    font-size:15px;color:var(--ink);margin-bottom:8px}
+  .dialog input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .found{max-height:230px;overflow:auto;border-top:1px solid var(--hair);margin-top:4px}
+  .fr{display:flex;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--hair)}
+  .fr .fi{flex:1;min-width:0}
+  .fr .fn{font-size:14px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fr .fs{font-size:12px;color:var(--gray);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fr button{flex:none;height:34px;font-size:13px}
+  .fr .in{font-size:12px;font-weight:700;color:var(--go);flex:none;padding:0 6px}
+  .fmsg{font-size:13px;color:var(--gray);padding:12px 2px;margin:0}
   .dialog select,.dialog textarea{width:100%;padding:10px 12px;border:1px solid var(--btn);
     border-radius:var(--r);background:#fff;color:var(--ink);font-family:inherit;font-size:15px;
     -webkit-appearance:none;appearance:none}
@@ -202,6 +218,7 @@
     <p class="stamp" id="stamp">—</p>
 
     <h2 class="h2row">미탑승 — 번호를 누르면 바로 전화
+      <button id="open-add" class="small">명단 추가</button>
       <button id="sms-all-left" class="small">전체 문자</button></h2>
     <ul id="list-left"></ul>
 
@@ -230,6 +247,27 @@
       <div id="np-list"></div>
     </div>
     <div class="row"><button id="req-close">닫기</button></div>
+  </div>
+</div>
+
+<div id="add-modal" class="mask hidden" role="dialog" aria-modal="true">
+  <div class="dialog add">
+    <h3>명단에 한 명 추가</h3>
+    <p class="s" id="add-sub">—</p>
+
+    <label class="fld" for="add-q">이미 등록된 사람에서 찾기</label>
+    <input id="add-q" type="text" placeholder="이름 · 소속 · 번호로 검색" autocomplete="off">
+    <div class="found" id="add-found"></div>
+
+    <label class="fld">명단에 없는 사람 새로 등록</label>
+    <input id="add-name" type="text" placeholder="이름" autocomplete="off">
+    <input id="add-phone" type="tel" inputmode="numeric" placeholder="010-0000-0000 (모르면 비워 두세요)">
+    <input id="add-note" type="text" placeholder="소속 · 팀 (예: 강원대학교 딸깍)" autocomplete="off">
+    <div class="row"><button id="add-new" class="small hl">새로 등록해서 추가</button></div>
+    <p class="hint" style="text-align:left">번호를 비워 두면 <b>연락처 추가 필요</b>로 올라갑니다.
+      나중에 종 아이콘에서 번호를 넣을 수 있습니다.</p>
+
+    <div class="row"><button id="add-close">닫기</button></div>
   </div>
 </div>
 
@@ -513,6 +551,107 @@ function renderNoPhone(rows){
   });
 }
 
+/* ---------------------------------------------------------------- 한 명 추가
+   명단 전체를 다루는 일은 관리 페이지에서 하고, 여기서는 한 명만 넣는다.
+   이미 등록된 사람을 찾아 이 편에 넣거나, 아예 새로 등록한다. */
+async function peopleRpc(action, payload){
+  const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/bus_people_admin", {
+    method:"POST",
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    body: JSON.stringify({ p_code: CODE, p_action: action, p_payload: payload || {} })
+  });
+  if(!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+let ADD_TIMER = null;
+
+function openAdd(){
+  $("add-sub").textContent = legLabel(LEG) + " 명단에 넣습니다.";
+  $("add-q").value = ""; $("add-name").value = "";
+  $("add-phone").value = ""; $("add-note").value = "";
+  $("add-found").innerHTML = "";
+  $("add-modal").classList.remove("hidden");
+  searchPeople();
+  $("add-q").focus();
+}
+function closeAdd(){ $("add-modal").classList.add("hidden"); }
+
+async function searchPeople(){
+  const box = $("add-found");
+  let d;
+  try{ d = await peopleRpc("search", { q: $("add-q").value.trim() }); }
+  catch(e){ box.innerHTML = ""; return; }
+  box.innerHTML = "";
+  const rows = (d && d.rows) || [];
+  if(!rows.length){
+    const p = document.createElement("p");
+    p.className = "fmsg";
+    p.textContent = $("add-q").value.trim()
+      ? "찾는 사람이 없습니다. 아래에서 새로 등록해 주세요."
+      : "등록된 사람이 없습니다.";
+    box.appendChild(p);
+    return;
+  }
+  rows.forEach(r => {
+    const here = LEG === "out" ? r.rides_out : r.rides_back;
+    const el = document.createElement("div"); el.className = "fr";
+    const fi = document.createElement("div"); fi.className = "fi";
+    const fn = document.createElement("div"); fn.className = "fn";
+    fn.textContent = r.name + (r.no_phone ? " (연락처 없음)" : "");
+    const fs = document.createElement("div"); fs.className = "fs";
+    fs.textContent = [r.note, r.no_phone ? "" : fmtPhone(r.phone),
+                      (r.rooms || []).join(" + ")].filter(Boolean).join(" · ");
+    fi.appendChild(fn); fi.appendChild(fs);
+    el.appendChild(fi);
+    if(here){
+      const s = document.createElement("span"); s.className = "in";
+      s.textContent = "이미 있음";
+      el.appendChild(s);
+    }else{
+      const b = document.createElement("button");
+      b.className = "small hl"; b.textContent = "추가";
+      b.onclick = async () => {
+        b.disabled = true;
+        const res = await peopleRpc("add", { leg: LEG, phone: r.phone,
+                                             name: r.name, note: r.note }).catch(() => null);
+        if(!res || (res.status !== "ok" && res.status !== "exists")){
+          alert("추가하지 못했습니다."); b.disabled = false; return;
+        }
+        await searchPeople(); load();
+      };
+      el.appendChild(b);
+    }
+    box.appendChild(el);
+  });
+}
+
+$("add-q").addEventListener("input", () => {
+  clearTimeout(ADD_TIMER);
+  ADD_TIMER = setTimeout(searchPeople, 200);
+});
+
+$("add-new").onclick = async () => {
+  const name = $("add-name").value.trim();
+  if(!name){ alert("이름을 넣어 주세요."); return; }
+  const digits = $("add-phone").value.replace(/\D/g, "");
+  if(digits && digits.length < 10){ alert("휴대폰 번호를 다시 확인해 주세요."); return; }
+  const btn = $("add-new");
+  btn.disabled = true;
+  const res = await peopleRpc("add", { leg: LEG, name: name, phone: digits,
+                                       note: $("add-note").value.trim() }).catch(() => null);
+  btn.disabled = false;
+  if(!res || res.status === "invalid"){ alert("이름을 넣어 주세요."); return; }
+  if(res.status === "exists"){ alert("이미 " + legLabel(LEG) + " 명단에 있는 사람입니다."); return; }
+  $("add-name").value = ""; $("add-phone").value = ""; $("add-note").value = "";
+  await searchPeople();
+  load();
+};
+
+$("open-add").onclick = openAdd;
+$("add-close").onclick = closeAdd;
+$("add-modal").addEventListener("click", (e) => { if(e.target === $("add-modal")) closeAdd(); });
+
 $("bell").onclick = openRequests;
 $("req-close").onclick = closeRequests;
 $("req-modal").addEventListener("click", (e) => { if(e.target === $("req-modal")) closeRequests(); });
@@ -520,6 +659,7 @@ document.addEventListener("keydown", (e) => {
   if(e.key !== "Escape") return;
   if(!$("req-modal").classList.contains("hidden")) closeRequests();
   if(!$("sms-modal").classList.contains("hidden")) closeSms();
+  if(!$("add-modal").classList.contains("hidden")) closeAdd();
 });
 
 async function setLeg(leg){
