@@ -91,6 +91,8 @@
   .room .rt .rn{flex:1;min-width:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
   .room .rt .rn span{font-size:13px;font-weight:600;color:var(--gray)}
   .room .rt button{flex:none;height:30px;padding:0 10px;font-size:12px}
+  .room .rt button.gear{width:32px;padding:0}
+  .room .rt button.gear svg{width:17px;height:17px;display:block}
   .room .rm{margin:7px 0 0;font-size:13px;line-height:1.6;color:var(--gray)}
   .room .rm b{color:var(--ink);font-weight:700}
   .room .rb{display:flex;align-items:center;gap:8px;margin-top:10px}
@@ -314,8 +316,9 @@
         <button id="view-note">소속별 보기</button>
       </div>
       <div class="rooms" id="room-list"></div>
-      <p class="hint">호수 버튼으로 실제 호수를 넣거나 고칩니다.
-        방 배정 전체는 명단 관리의 통합 시트로 올립니다.</p>
+      <p class="hint">방 카드의 톱니바퀴에서 인원 변경과 호수 입력을 합니다.
+        방 배정 전체는 명단 관리의 통합 시트로 올리고, 호수는 명단 관리 →
+        개별 설정 → 숙박에서 표로 한꺼번에 넣을 수도 있습니다.</p>
     </div>
 
     <p class="hint" style="margin-top:26px">명단 넣기와 삭제, 차량·탑승 위치, 숙소 안내 문구는
@@ -358,6 +361,25 @@
       나중에 종 아이콘에서 번호를 넣을 수 있습니다.</p>
 
     <div class="row"><button id="add-close">닫기</button></div>
+  </div>
+</div>
+
+<div id="rset-modal" class="mask hidden" role="dialog" aria-modal="true">
+  <div class="dialog add">
+    <h3 id="rset-title">방 설정</h3>
+    <p class="s" id="rset-sub">—</p>
+
+    <label class="fld">인원</label>
+    <div class="row"><button id="rset-mem" class="small hl">인원 변경</button></div>
+    <p class="hint" style="text-align:left">방에 사람을 넣고 빼거나 방장을 바꿉니다.</p>
+
+    <label class="fld" for="rset-no">호수(객실번호)</label>
+    <input id="rset-no" type="text" placeholder="1004호" autocomplete="off">
+    <div class="row"><button id="rset-save" class="small hl">호수 저장</button></div>
+    <p class="hint" style="text-align:left">비워 두고 저장하면 호수를 지웁니다.
+      호수를 넣으면 방 이름 자리에 호수가 크게 표시됩니다.</p>
+
+    <div class="row"><button id="rset-close">닫기</button></div>
   </div>
 </div>
 
@@ -721,22 +743,19 @@ function roomCard(r){
                     (r.room_no ? "" : " · 호수 미입력");
   if(g === "남녀 섞임") sub.className = "warn";
   rn.appendChild(sub);
-  const memBtn = document.createElement("button");
-  memBtn.textContent = "인원";
-  memBtn.onclick = () => openMembers(r);
   const smsBtn = document.createElement("button");
   smsBtn.textContent = "문자";
   smsBtn.onclick = () => openSms(roomTitle(r), r.members, "team", "room");
-  const noBtn = document.createElement("button");
-  noBtn.textContent = "호수";
-  noBtn.onclick = async () => {
-    const v = prompt(roomTitle(r) + " — 실제 호수 입력 (예: 1004호)", r.room_no || "");
-    if(v === null) return;
-    await roomRpc("set_room_no", { room: r.room, no: v.trim() });
-    toast("저장 되었습니다.");
-    loadRooms();
-  };
-  rt.appendChild(rn); rt.appendChild(memBtn); rt.appendChild(smsBtn); rt.appendChild(noBtn);
+  // 인원 변경과 호수 입력은 자주 쓰는 일이 아니라 톱니바퀴 안으로 넣는다.
+  const gear = document.createElement("button");
+  gear.className = "gear";
+  gear.title = "방 설정"; gear.setAttribute("aria-label", roomTitle(r) + " 설정");
+  gear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+    'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<circle cx="12" cy="12" r="3"></circle>' +
+    '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>';
+  gear.onclick = () => openRoomSet(r);
+  rt.appendChild(rn); rt.appendChild(smsBtn); rt.appendChild(gear);
 
   const rm = document.createElement("div"); rm.className = "rm";
   // 숙박일 정보가 있는 방에서만, 이틀 다 묵지 않는 사람에게 표시를 붙인다.
@@ -1108,6 +1127,7 @@ document.addEventListener("keydown", (e) => {
   if(e.key !== "Escape") return;
   if(!$("sms-modal").classList.contains("hidden")){ closeSms(); return; }
   if(!$("mem-modal").classList.contains("hidden")){ closeMembers(); return; }
+  if(!$("rset-modal").classList.contains("hidden")){ closeRoomSet(); return; }
   if(!$("add-modal").classList.contains("hidden")){ closeAdd(); return; }
   if(!$("req-modal").classList.contains("hidden")) closeRequests();
 });
@@ -1171,6 +1191,44 @@ function setRoomView(v){
 }
 $("view-room").onclick = () => setRoomView("room");
 $("view-note").onclick = () => setRoomView("note");
+
+/* ---------------------------------------------------------------- 방 설정
+   카드에는 자주 쓰는 "문자" 만 남기고, 인원 변경과 호수 입력은 톱니바퀴 안에 둔다.
+   호수는 브라우저 prompt 를 쓰지 않는다 — 대화상자가 차단되면 먹통이 된다. */
+let RSET_ROOM = null;
+
+function openRoomSet(r){
+  RSET_ROOM = r;
+  $("rset-title").textContent = roomTitle(r) + " 설정";
+  $("rset-sub").textContent = (r.room_no && r.room_label ? r.room_label + " · " : "") +
+                              (r.members || []).length + "명";
+  $("rset-no").value = r.room_no || "";
+  $("rset-modal").classList.remove("hidden");
+}
+function closeRoomSet(){ $("rset-modal").classList.add("hidden"); RSET_ROOM = null; }
+
+$("rset-mem").onclick = () => {
+  const r = RSET_ROOM;
+  closeRoomSet();
+  if(r) openMembers(r);
+};
+
+$("rset-save").onclick = async () => {
+  if(!RSET_ROOM) return;
+  const btn = $("rset-save");
+  btn.disabled = true;
+  let d;
+  try{ d = await roomRpc("set_room_no", { room: RSET_ROOM.room, no: $("rset-no").value.trim() }); }
+  catch(e){ d = null; }
+  btn.disabled = false;
+  if(!d || d.status !== "ok"){ toast("저장하지 못했습니다.", true); return; }
+  toast("저장 되었습니다.");
+  closeRoomSet();
+  loadRooms();
+};
+
+$("rset-close").onclick = closeRoomSet;
+$("rset-modal").addEventListener("click", (e) => { if(e.target === $("rset-modal")) closeRoomSet(); });
 
 /* ---------------------------------------------------------------- 방 인원
    방 배정 전체는 명단 관리의 시트로 올리고, 여기서는 한 명씩 넣고 뺀다. */
