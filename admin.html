@@ -99,6 +99,15 @@
   .room.out .rb .st{color:var(--warn)}
   .room.in .rb .st{color:var(--go)}
   .blank{padding:22px 4px;text-align:center;color:var(--gray);font-size:14px}
+  /* 이름·번호로 찾기 — 세 탭 모두에 걸린다 */
+  .find{display:flex;gap:8px;align-items:center;margin:0 0 10px}
+  .find input{flex:1 1 auto;min-width:0;height:44px;padding:0 13px;border:1px solid var(--btn);
+    border-radius:var(--r);background:#fff;font-family:inherit;font-size:15px;color:var(--ink);
+    -webkit-appearance:none;appearance:none}
+  .find input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
+  .find button{flex:none}
+  .findmsg{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--blue);text-align:center}
+  .findmsg.none{color:var(--warn)}
   /* 방별 / 소속별 전환 */
   .tabs.sub{margin-bottom:10px}
   .tabs.sub button{flex:1 1 0;min-width:0;height:38px;padding:0;background:var(--btnbg);
@@ -264,6 +273,13 @@
     </div>
     <p class="swhint" id="swhint">—</p>
 
+    <div class="find">
+      <input id="find" type="search" inputmode="search" autocomplete="off"
+             placeholder="이름 또는 번호 뒷 4자리로 찾기">
+      <button id="find-x" class="small hidden">지우기</button>
+    </div>
+    <p class="findmsg hidden" id="find-msg"></p>
+
     <div id="bus-panel">
       <div class="counts">
         <div class="count left"><div class="n" id="c-left">0</div><div class="k">미탑승</div></div>
@@ -423,6 +439,8 @@ let COLLECT = { out:true, back:true };
 let ROOM_OPEN = true;
 let ROOMS = [];
 let ROOM_VIEW = "room";   // "room" = 방별 보기 / "note" = 소속별 보기
+// 마지막으로 받아 둔 자료. 찾기 칸을 칠 때마다 이걸로 다시 그린다.
+let LAST_LIST = null, LAST_ROOMS = null;
 let SMS_LISTS = { left:[], done:[] };   // 목록 전체로 문자 보낼 때 쓰는 현재 명단
 
 async function callRpc(fn, body){
@@ -447,6 +465,58 @@ function fmtPhone(d){
   if(d.length === 10) return d.slice(0,3)+"-"+d.slice(3,6)+"-"+d.slice(6);
   return d;
 }
+
+/* ---------------------------------------------------------------- 찾기
+   이름·소속으로도, 번호로도 찾는다. 번호는 뒷자리만 눌러도 되도록 자릿수
+   어디에 걸리든 맞다고 본다("6746" → 010-4015-6746).
+   숫자를 두 자 미만 넣으면 번호로는 안 찾는다 — 너무 많이 걸린다. */
+let Q = "";
+const squash = (s) => String(s == null ? "" : s).toLowerCase().replace(/\s+/g, "");
+
+function hit(){
+  if(!Q) return true;
+  const q = squash(Q), d = Q.replace(/\D/g, "");
+  for(let i = 0; i < arguments.length; i++){
+    const v = arguments[i];
+    if(!v) continue;
+    if(q && squash(v).indexOf(q) >= 0) return true;
+    if(d.length >= 2 && String(v).replace(/\D/g, "").indexOf(d) >= 0) return true;
+  }
+  return false;
+}
+
+const hitRow  = (r) => hit(r.name, r.note, r.phone);
+// 방은 방 이름·호수로도 찾고, 안에 든 사람으로도 찾는다.
+const hitRoom = (r) => hit(r.room, r.room_no, r.room_label) ||
+                       (r.members || []).some(m => hit(m.name, m.note, m.phone));
+
+function paintFind(){
+  $("find-x").classList.toggle("hidden", !Q);
+  const msg = $("find-msg");
+  if(!Q){ msg.classList.add("hidden"); return; }
+  msg.classList.remove("hidden");
+  let n = 0, what = "";
+  if(TAB === "room"){ n = ROOMS.filter(hitRoom).length; what = "실"; }
+  else { n = (SMS_LISTS.left.length + SMS_LISTS.done.length); what = "명"; }
+  msg.classList.toggle("none", n === 0);
+  msg.textContent = n
+    ? "“" + Q + "” 로 찾은 " + n + what
+    : "“" + Q + "” 로 찾은 것이 없습니다.";
+}
+
+// 서버를 다시 부르지 않고 지금 들어 있는 자료에서 걸러 낸다.
+function repaint(){
+  if(LAST_LIST) render(LAST_LIST);
+  if(LAST_ROOMS) renderRooms(LAST_ROOMS);
+  paintFind();
+}
+
+$("find").addEventListener("input", () => { Q = $("find").value.trim(); repaint(); });
+$("find-x").onclick = () => {
+  $("find").value = ""; Q = "";
+  repaint();
+  $("find").focus();
+};
 
 // 소속(1순위) → 이름(2순위). 소속 없는 사람은 맨 뒤로.
 function byGroupName(a, b){
@@ -557,6 +627,7 @@ function paintTabs(){
 }
 
 function render(d){
+  LAST_LIST = d;
   if(d.collecting) COLLECT = { out: !!d.collecting.out, back: !!d.collecting.back };
   $("title-band").textContent = d.title || "행사";
   paintTabs();
@@ -564,20 +635,27 @@ function render(d){
   paintSwitches();
 
   const rows = d.rows || [];
-  const left = rows.filter(r => !r.boarded);
-  const done = rows.filter(r => r.boarded);
-  SMS_LISTS = { left: left.slice().sort(byGroupName), done: done.slice().sort(byGroupName) };
-  $("c-left").textContent = left.length;
-  $("c-done").textContent = done.length;
+  // 숫자 세 칸은 늘 전체를 보여 준다. 찾기는 아래 목록에만 건다.
+  $("c-left").textContent = rows.filter(r => !r.boarded).length;
+  $("c-done").textContent = rows.filter(r => r.boarded).length;
   $("c-all").textContent = rows.length;
+
+  const found = rows.filter(hitRow);
+  const left = found.filter(r => !r.boarded);
+  const done = found.filter(r => r.boarded);
+  // 문자도 찾은 사람에게만 간다 — 팀을 찾아 그 팀에만 보내는 데 쓴다.
+  SMS_LISTS = { left: left.slice().sort(byGroupName), done: done.slice().sort(byGroupName) };
   const t = d.totals || {};
   const other = LEG === "out" ? "back" : "out";
   const o = t[other];
   $("stamp").textContent = (o ? legLabel(other) + " " + o.done + "/" + o.all + " · " : "") +
     "갱신 " + new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 
-  fillList("list-left", left, rows.length ? "모두 탑승했습니다." : "아직 명단이 없습니다. 관리 페이지에서 명단을 넣어 주세요.");
-  fillList("list-done", done, "아직 확인한 사람이 없습니다.");
+  fillList("list-left", left,
+    Q ? "찾은 사람이 없습니다."
+      : rows.length ? "모두 탑승했습니다." : "아직 명단이 없습니다. 관리 페이지에서 명단을 넣어 주세요.");
+  fillList("list-done", done, Q ? "찾은 사람이 없습니다." : "아직 확인한 사람이 없습니다.");
+  paintFind();
 }
 
 async function load(){
@@ -731,6 +809,7 @@ function roomCard(r){
 }
 
 function renderRooms(d){
+  LAST_ROOMS = d;
   $("c-rooms").textContent = ROOMS.length;
   $("c-kout").textContent = ROOMS.filter(r => r.state === "out").length;
   $("c-kin").textContent = ROOMS.filter(r => r.state === "in").length;
@@ -742,15 +821,19 @@ function renderRooms(d){
 
   const box = $("room-list");
   box.innerHTML = "";
-  if(!ROOMS.length){
+  const list = ROOMS.filter(hitRoom);
+  if(!list.length){
     const p = document.createElement("div");
     p.className = "blank";
-    p.textContent = "아직 방 배정이 없습니다. 명단 관리에서 방 열이 있는 시트를 올려 주세요.";
+    p.textContent = Q ? "찾은 방이 없습니다."
+      : "아직 방 배정이 없습니다. 명단 관리에서 방 열이 있는 시트를 올려 주세요.";
     box.appendChild(p);
+    paintFind();
     return;
   }
-  if(ROOM_VIEW === "note") renderByNote(box);
-  else ROOMS.forEach(r => box.appendChild(roomCard(r)));
+  if(ROOM_VIEW === "note") renderByNote(box, list);
+  else list.forEach(r => box.appendChild(roomCard(r)));
+  paintFind();
 }
 
 /* 소속별 보기 — 소속(대학+팀명)으로 묶어서 그 소속이 쓰는 방을 늘어놓는다.
@@ -765,9 +848,9 @@ function notesOf(r){
   return out;
 }
 
-function renderByNote(box){
+function renderByNote(box, list){
   const by = {}, order = [];
-  ROOMS.forEach(r => notesOf(r).forEach(n => {
+  list.forEach(r => notesOf(r).forEach(n => {
     if(!by[n]){ by[n] = []; order.push(n); }
     by[n].push(r);
   }));
