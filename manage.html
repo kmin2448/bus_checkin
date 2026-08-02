@@ -101,6 +101,14 @@
   .coltab td.off{color:#9AA1AB;font-weight:400}
   .coltab .req{display:inline-block;font-size:10px;font-weight:800;color:var(--warn)}
   .coltab .cs{color:#9AA1AB}
+  /* 저장·삭제처럼 결과를 바로 알려야 하는 동작에 띄우는 알림 */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);
+    z-index:60;background:#0A0C0F;color:#fff;padding:13px 20px;border-radius:var(--r);
+    font-size:14px;font-weight:700;line-height:1.5;box-shadow:0 10px 30px rgba(20,24,32,.3);
+    max-width:calc(100% - 32px);text-align:center;opacity:0;pointer-events:none;
+    transition:opacity .18s ease,transform .18s ease}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.bad{background:var(--warn)}
   .hidden{display:none !important}
 </style>
 </head>
@@ -117,7 +125,10 @@
 
   <section id="panel" class="hidden">
     <p class="kicker" id="title-band">행사</p>
-    <div class="head"><h1>명단 · 관리</h1><span class="ghost">manage.</span></div>
+    <div class="head">
+      <h1>명단 · 관리</h1>
+      <a class="linkbtn" href="admin.html">현황 보기</a>
+    </div>
 
     <div class="summary" id="summary">—<span id="summary-sub">현재 명단 현황</span></div>
 
@@ -250,6 +261,18 @@
 const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
 const $ = (id) => document.getElementById(id);
+
+/* 저장·삭제가 실제로 됐는지 눈으로 확인할 수 있게 잠깐 띄운다. */
+let TOAST_T = null;
+function toast(msg, bad){
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.toggle("bad", !!bad);
+  el.classList.add("on");
+  clearTimeout(TOAST_T);
+  TOAST_T = setTimeout(() => el.classList.remove("on"), 2600);
+}
+
 let CODE = "", LEG = "out";
 
 async function call(fn, body){
@@ -465,7 +488,7 @@ $("save-info").onclick = async () => {
   const d = await call("bus_set_info", {
     p_code: CODE, p_bus: $("bus-in").value.trim(), p_place: $("place-in").value.trim()
   }).catch(() => null);
-  alert(d && d.status === "ok" ? "저장했습니다." : "저장하지 못했습니다.");
+  toast(d && d.status === "ok" ? "저장 되었습니다." : "저장하지 못했습니다.", !(d && d.status === "ok"));
 };
 
 // 숙소 안내 문구 — bus_config(room_key_guide / checkout_guide)에 저장된다.
@@ -507,7 +530,7 @@ async function loadGroups(){
     c.appendChild(document.createTextNode(g));
     const x = document.createElement("button");
     x.textContent = "✕"; x.title = "삭제";
-    x.onclick = async () => { await rpc("group_del", {name:g}); loadGroups(); };
+    x.onclick = async () => { await rpc("group_del", {name:g}); toast("삭제 되었습니다."); loadGroups(); };
     c.appendChild(x);
     box.appendChild(c);
   });
@@ -518,6 +541,7 @@ $("group-add").onclick = async () => {
   if(!v) return;
   await rpc("group_add", { name: v });
   $("group-in").value = "";
+  toast("저장 되었습니다.");
   loadGroups();
 };
 $("group-in").addEventListener("keydown", e => { if(e.key === "Enter") $("group-add").click(); });
@@ -628,6 +652,7 @@ async function applySheet(mode){
   $("file-msg").className = "hint good";
   $("file-msg").textContent = n + "명을 " +
     (legOnly ? legLabel(LEG) + " 명단에 넣었습니다." : "통합 시트로 반영했습니다.");
+  toast(n + "명 저장 되었습니다.");
   load();
 }
 
@@ -800,32 +825,37 @@ armed($("copy"), "다시 눌러 복사", async () => {
   if(d && d.status === "ok"){
     const other = LEG === "out" ? "오는 편" : "가는 편";
     say(legLabel(LEG) + " 명단을 " + other + "으로 복사했습니다. 탑승 기록은 복사되지 않습니다.");
+    toast("저장 되었습니다.");
   }
   return d;
 });
 armed($("reset"), "다시 눌러 리셋", async () => {
   const d = await rpc("reset_all");
-  if(d && d.status === "ok") say(legLabel(LEG) + " 탑승 기록을 모두 지웠습니다. 명단은 남아 있습니다.");
+  if(d && d.status === "ok"){ say(legLabel(LEG) + " 탑승 기록을 모두 지웠습니다. 명단은 남아 있습니다."); toast("탑승 기록을 지웠습니다."); }
   return d;
 });
 armed($("purge"), "다시 눌러 삭제", async () => {
   const d = await rpc("purge", { scope: "leg" });
-  if(d && d.status === "ok") say(legLabel(LEG) + " 명단과 기록을 삭제했습니다.");
+  if(d && d.status === "ok"){ say(legLabel(LEG) + " 명단과 기록을 삭제했습니다."); toast("삭제 되었습니다."); }
   return d;
 });
 armed($("purge-all"), "정말 전부 삭제", async () => {
   const d = await rpc("purge", { scope: "all" });
-  if(d && d.status === "ok") say("가는 편 · 오는 편 명단과 숙박 · 방 배정을 전부 삭제했습니다.");
+  if(d && d.status === "ok"){ say("가는 편 · 오는 편 명단과 숙박 · 방 배정을 전부 삭제했습니다."); toast("삭제 되었습니다."); }
   return d;
 });
-$("save-title").onclick = async () => { await rpc("set_title", { title: $("title-input").value.trim() }); load(); };
+$("save-title").onclick = async () => {
+  const d = await rpc("set_title", { title: $("title-input").value.trim() }).catch(() => null);
+  toast(d && d.status === "ok" ? "저장 되었습니다." : "저장하지 못했습니다.", !(d && d.status === "ok"));
+  load();
+};
 $("save-code").onclick = async () => {
   const c = $("new-code").value.trim();
   if(c.length < 6){ alert("6자 이상으로 정해 주세요."); return; }
   await rpc("set_code", { code: c });
   CODE = c; localStorage.setItem("bus_admin_code", c);
   $("new-code").value = "";
-  alert("운영 코드를 바꿨습니다.");
+  toast("운영 코드를 바꿨습니다.");
 };
 
 async function enter(){
@@ -846,5 +876,6 @@ $("code").addEventListener("keydown", e => { if(e.key === "Enter") enter(); });
 const saved = new URLSearchParams(location.search).get("code") || localStorage.getItem("bus_admin_code");
 if(saved){ $("code").value = saved; enter(); }
 </script>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

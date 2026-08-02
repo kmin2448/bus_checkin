@@ -129,6 +129,15 @@
     font-weight:700;color:#000;background:var(--btnbg);border:1px solid var(--btn);border-radius:var(--r);
     cursor:pointer;white-space:nowrap}
   .dialog button.yes{font-weight:800;background:#fff;border:1.5px solid var(--navy);color:var(--navy)}
+  .dialog button.yes.warn{border-color:var(--warn);color:var(--warn)}
+  .dialog .q.warn{color:var(--warn)}
+  /* 방키 수령·반납 — 방장에게만 버튼이 보인다 */
+  .keyrow{margin-top:16px;padding-top:16px;border-top:1px solid var(--hair)}
+  .keyrow .kst{margin:0;font-size:13px;font-weight:700;color:var(--gray)}
+  .keyrow .kst.out{color:var(--warn)}
+  .keyrow .kst.in{color:var(--go)}
+  .keyrow button{margin-top:10px}
+  .keyrow .knote{margin:8px 0 0;font-size:12px;line-height:1.6;color:var(--gray)}
   .dialog button.no-warn{color:var(--warn)}
   .dialog button:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
   .hidden{display:none !important}
@@ -152,9 +161,9 @@
         <p class="ps" id="pick-bus-sub">버스에 타신 뒤 휴대폰 번호로 탑승을 확인합니다.</p>
       </button>
       <button class="pick" id="pick-room" type="button">
-        <p class="pt">숙소</p>
-        <p class="ph">숙소 방 안내</p>
-        <p class="ps">휴대폰 번호로 배정된 방과 같은 방 인원을 확인합니다.</p>
+        <p class="pt" id="pick-room-tag">숙소</p>
+        <p class="ph">숙소 방 안내<span class="pd hidden" id="pick-room-done"> —</span></p>
+        <p class="ps" id="pick-room-sub">휴대폰 번호로 배정된 방과 같은 방 인원을 확인합니다.</p>
       </button>
     </div>
   </section>
@@ -228,6 +237,7 @@
 
     <button id="req-send" class="primary hl">요청 보내기</button>
     <button id="req-cancel" class="ghostbtn">돌아가기</button>
+    <a href="#" id="req-home" class="backlink">첫 화면으로 가기</a>
     <p id="req-err" class="err hidden"></p>
   </section>
 
@@ -249,6 +259,7 @@
     <button id="done-checkin" class="primary" disabled>탑승 확인</button>
     <p class="note" id="done-hint">승인되면 이 화면에서 바로 탑승 확인을 하실 수 있습니다.</p>
     <a href="#" id="done-back" class="backlink">돌아가기</a>
+    <a href="#" id="done-home" class="backlink" style="margin-top:10px">첫 화면으로 가기</a>
   </section>
 
   <section id="closed-view" class="hidden">
@@ -284,6 +295,17 @@
     <div class="btns">
       <button id="ask-no">아니요</button>
       <button id="ask-yes" class="yes">네</button>
+    </div>
+  </div>
+</div>
+
+<div id="key-ask" class="mask hidden" role="dialog" aria-modal="true" aria-labelledby="key-q">
+  <div class="dialog">
+    <p class="q" id="key-q">—</p>
+    <p class="s" id="key-s">—</p>
+    <div class="btns">
+      <button id="key-no">아니요</button>
+      <button id="key-yes" class="yes">네</button>
     </div>
   </div>
 </div>
@@ -348,6 +370,29 @@ let PICKED = "";
    기기를 돌려 쓰므로 화면에만 두고 저장하지는 않는다. */
 let DONE = null;
 
+/* 이 기기에서 마지막으로 확인한 숙소 정보. 첫 화면 숙소 카드에 지금 상태를
+   보여 주고, 카드를 누르면 그 번호로 바로 다시 열어 고칠 수 있게 한다.
+   탑승 쪽(DONE)과 같은 이유로 화면에만 두고 저장하지는 않는다. */
+let ROOMDONE = null;   // { phone, name, rooms:[{title, is_leader, state}] }
+
+function paintRoomPick(){
+  const r = ROOMDONE;
+  const tag = $("pick-room-done");
+  // 방장으로 맡은 방이 있으면 그 방키 상태를 제목 옆에 적는다.
+  const led = r ? r.rooms.filter(x => x.is_leader) : [];
+  const st = !led.length ? ""
+    : led.some(x => x.state === "out") ? "(방키 수령함)"
+    : led.every(x => x.state === "in") ? "(방키 반납 완료)" : "";
+  tag.textContent = " " + st;
+  tag.classList.toggle("hidden", !st);
+  $("pick-room").classList.toggle("done", !!st);
+  $("pick-room-tag").textContent = r ? "숙소 · " + r.name : "숙소";
+  $("pick-room-sub").textContent = r
+    ? r.rooms.map(x => x.title).join(" + ") +
+      " — 눌러서 다시 보거나 방키를 처리할 수 있습니다."
+    : "휴대폰 번호로 배정된 방과 같은 방 인원을 확인합니다.";
+}
+
 /* 운영자가 켠 것만 보여 준다. 버스는 편이 하나라도 켜져 있으면 열린 것으로 본다.
    room_open 을 안 주는 예전 서버에서는 숙소 안내가 늘 열려 있는 것으로 본다. */
 function busOn(){ return openLegs().length > 0; }
@@ -382,8 +427,9 @@ function paintHome(){
   const solo = entryView() !== "home";
   $("pick-bus").classList.toggle("hidden", !open);
   $("pick-room").classList.toggle("hidden", !roomOn());
-  ["bus-home","closed-home","room-back","result-home"].forEach(id =>
+  ["bus-home","closed-home","room-back","result-home","req-home","done-home"].forEach(id =>
     $(id).classList.toggle("hidden", solo));
+  paintRoomPick();
   $("room-open").classList.toggle("hidden", !roomOn());
   $("room-open2").classList.toggle("hidden", !roomOn());
   $("pick-bus").classList.toggle("off", !open);
@@ -499,8 +545,8 @@ go.addEventListener("click", openAsk);
 $("recheck").addEventListener("click", () => { PICKED = "bus"; loadStatus(true); });
 $("pick-bus").addEventListener("click", openBusView);
 $("pick-room").addEventListener("click", () => openRoomView());
-$("bus-home").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
-$("closed-home").addEventListener("click", (e) => { e.preventDefault(); goHome(); });
+["bus-home","closed-home","req-home","done-home"].forEach(id =>
+  $(id).addEventListener("click", (e) => { e.preventDefault(); goHome(); }));
 autoFormat($("r-phone-in"));
 
 function openAsk(){
@@ -760,7 +806,8 @@ roomPhone.addEventListener("keydown", (e) => { if(e.key === "Enter" && !roomGo.d
 
 function openRoomView(){
   PICKED = "room";
-  roomPhone.value = pretty(digits(phone.value));
+  // 방금 본 번호가 있으면 그걸, 없으면 탑승 확인에 넣었던 번호를 쓴다.
+  roomPhone.value = pretty((ROOMDONE && ROOMDONE.phone) || digits(phone.value));
   roomGo.disabled = digits(roomPhone.value).length < 10;
   $("room-err").classList.add("hidden");
   $("room-result").classList.add("hidden");
@@ -834,8 +881,77 @@ function roomCard(r, idx, total, nights){
     }
     card.appendChild(row);
   });
+
+  // 방키는 방장이 받아 가고 방장이 반납한다. 그래서 버튼은 방장에게만 준다.
+  const kb = document.createElement("div"); kb.className = "keyrow";
+  const kst = document.createElement("p");
+  kst.className = "kst" + (r.state === "out" ? " out" : r.state === "in" ? " in" : "");
+  kst.textContent = r.state === "out" ? "방키 수령함 · " + (r.out_at || "--:--")
+                  : r.state === "in"  ? "방키 반납 완료 · " + (r.in_at || "--:--")
+                  : "방키 수령 전";
+  kb.appendChild(kst);
+
+  if(r.is_leader && r.state !== "in"){
+    const b = document.createElement("button");
+    b.className = "primary hl";
+    b.textContent = r.state === "out" ? "방키 반납" : "방키 수령";
+    b.onclick = () => askKey(r.room, r.state === "out" ? "key_in" : "key_out");
+    kb.appendChild(b);
+  }else if(r.is_leader && r.state === "in"){
+    const n = document.createElement("p"); n.className = "knote";
+    n.textContent = "반납 처리가 끝났습니다. 잘못 눌렀다면 인솔자에게 말씀해 주세요.";
+    kb.appendChild(n);
+  }else if(!r.is_leader){
+    const n = document.createElement("p"); n.className = "knote";
+    n.textContent = "방키는 방장이 받아 가고 반납합니다.";
+    kb.appendChild(n);
+  }
+  card.appendChild(kb);
   return card;
 }
+
+/* 방키는 되돌리기 번거로우니 누르기 전에 한 번 더 묻는다.
+   반납은 실제로 반납하지 않고 누르면 곤란해지므로 경고로 띄운다. */
+let KEY_ASK = null;
+
+function askKey(room, action){
+  KEY_ASK = { room: room, action: action };
+  const out = action === "key_out";
+  $("key-q").className = "q" + (out ? "" : " warn");
+  $("key-yes").className = "yes" + (out ? "" : " warn");
+  $("key-q").innerHTML = out ? "방키를<br>받으셨습니까?" : "안내된 곳에<br>반납하셨습니까?";
+  $("key-s").textContent = out
+    ? "방키를 손에 받으셨다면 \"네\"를 눌러 주세요. 아직 받기 전이라면 누르지 마세요."
+    : "체크아웃 안내에 적힌 곳에 방키를 두고 오신 뒤에 눌러 주세요. "
+      + "반납하지 않고 누르면 반납한 것으로 기록되어 나중에 분실로 처리될 수 있습니다.";
+  $("key-ask").classList.remove("hidden");
+  $("key-yes").focus();
+}
+function closeKeyAsk(){ $("key-ask").classList.add("hidden"); KEY_ASK = null; }
+
+async function doKey(){
+  const it = KEY_ASK;
+  closeKeyAsk();
+  if(!it) return;
+  const d = digits(roomPhone.value);
+  try{
+    const res = await rpc("bus_room_self", { p_phone: d, p_action: it.action, p_room: it.room });
+    if(res.status === "ok"){ loadRoom(); return; }
+    if(res.status === "denied") roomErr("방장만 누를 수 있습니다. 인솔자에게 문의해 주세요.");
+    else if(res.status === "closed"){
+      STATE.room_open = false;
+      roomErr("지금은 숙소 방 안내가 닫혀 있습니다. 인솔자에게 문의해 주세요.");
+      loadStatus(false);
+    }
+    else roomErr("처리하지 못했습니다. 인솔자에게 말씀해 주세요.");
+  }catch(e){
+    roomErr("연결이 끊겼습니다. 잠시 후 다시 눌러 주세요.");
+  }
+}
+
+$("key-yes").addEventListener("click", doKey);
+$("key-no").addEventListener("click", closeKeyAsk);
+$("key-ask").addEventListener("click", (e) => { if(e.target === $("key-ask")) closeKeyAsk(); });
 
 function renderRoom(d){
   // 예전 화면 호환용으로 첫 방이 위쪽에도 담겨 오므로, rooms 가 없으면 그걸 쓴다.
@@ -846,6 +962,19 @@ function renderRoom(d){
   const box = $("rm-cards");
   box.innerHTML = "";
   rooms.forEach((r, i) => box.appendChild(roomCard(r, i, rooms.length, nights)));
+
+  // 첫 화면 숙소 카드에 지금 상태를 적어 두고, 거기서 다시 들어올 수 있게 한다.
+  const me = (rooms[0] && rooms[0].members || []).filter(m => m.phone === digits(roomPhone.value))[0];
+  ROOMDONE = {
+    phone: digits(roomPhone.value),
+    name: (me && me.name) || "내 방",
+    rooms: rooms.map(x => ({
+      title: (x.room_no || "").trim() || (x.room_label || "").trim() || "방",
+      is_leader: !!x.is_leader,
+      state: x.state || "pending"
+    }))
+  };
+  paintRoomPick();
 
   const kg = (d.key_guide || "").trim();
   const cg = (d.checkout_guide || "").trim();

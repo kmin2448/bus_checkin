@@ -191,6 +191,14 @@
     background:#fff;color:var(--navy);font-weight:800;font-size:15px;text-decoration:none;
     white-space:nowrap}
   .batch.sent .sendbtn{border:1px solid var(--btn);background:var(--btnbg);color:#000;font-weight:700}
+  /* 저장·삭제처럼 결과를 바로 알려야 하는 동작에 띄우는 알림 */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);
+    z-index:60;background:#0A0C0F;color:#fff;padding:13px 20px;border-radius:var(--r);
+    font-size:14px;font-weight:700;line-height:1.5;box-shadow:0 10px 30px rgba(20,24,32,.3);
+    max-width:calc(100% - 32px);text-align:center;opacity:0;pointer-events:none;
+    transition:opacity .18s ease,transform .18s ease}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.bad{background:var(--warn)}
   .hidden{display:none !important}
 </style>
 </head>
@@ -376,6 +384,18 @@
 const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
 const $ = (id) => document.getElementById(id);
+
+/* 저장·삭제가 실제로 됐는지 눈으로 확인할 수 있게 잠깐 띄운다. */
+let TOAST_T = null;
+function toast(msg, bad){
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.toggle("bad", !!bad);
+  el.classList.add("on");
+  clearTimeout(TOAST_T);
+  TOAST_T = setTimeout(() => el.classList.remove("on"), 2600);
+}
+
 const LEGS = ["out","back"];
 let CODE = "", LEG = "out";
 // 위쪽 탭이 무엇을 보여 줄지. "out"/"back" 은 그 편 탑승 명단, "room" 은 방 목록.
@@ -614,6 +634,7 @@ function roomCard(r){
     const v = prompt(roomTitle(r) + " — 실제 호수 입력 (예: 1004호)", r.room_no || "");
     if(v === null) return;
     await roomRpc("set_room_no", { room: r.room, no: v.trim() });
+    toast("저장 되었습니다.");
     loadRooms();
   };
   rt.appendChild(rn); rt.appendChild(memBtn); rt.appendChild(smsBtn); rt.appendChild(noBtn);
@@ -755,12 +776,19 @@ async function loadRequests(){
     const acts = document.createElement("div"); acts.className = "acts";
     const ok = document.createElement("button");
     ok.className = "small hl"; ok.textContent = fix ? "번호 바꾸기" : "명단에 추가";
-    ok.onclick = async () => { ok.disabled = true; await rpc("request_approve", {id:r.id}); await loadRequests(); load(); };
+    ok.onclick = async () => {
+      ok.disabled = true;
+      await rpc("request_approve", {id:r.id});
+      toast(r.name + " 님이 명단에 저장 되었습니다.");
+      await loadRequests(); load();
+    };
     const no = document.createElement("button");
     no.className = "small"; no.textContent = "거절";
     no.onclick = async () => {
       if(!confirm(r.name + " 요청을 거절합니다.")) return;
-      await rpc("request_reject", {id:r.id}); await loadRequests(); load();
+      await rpc("request_reject", {id:r.id});
+      toast("요청을 거절했습니다.");
+      await loadRequests(); load();
     };
     acts.appendChild(ok); acts.appendChild(no);
     d1.appendChild(tag); d1.appendChild(nm); d1.appendChild(sub); d1.appendChild(acts);
@@ -796,7 +824,8 @@ function renderNoPhone(rows){
       ok.disabled = false;
       if(!res || res.status === "invalid"){ alert("휴대폰 번호를 다시 확인해 주세요."); return; }
       if(res.status === "exists"){ alert("이미 명단에 있는 번호입니다."); return; }
-      if(res.status === "gone"){ alert("이미 처리된 사람입니다."); }
+      if(res.status === "gone") toast("이미 처리된 사람입니다.", true);
+      else toast(r.name + " 님 연락처가 저장 되었습니다.");
       await loadRequests(); load();
     };
     acts.appendChild(ok);
@@ -864,8 +893,9 @@ async function searchPeople(){
         const res = await peopleRpc("add", { leg: LEG, phone: r.phone,
                                              name: r.name, note: r.note }).catch(() => null);
         if(!res || (res.status !== "ok" && res.status !== "exists")){
-          alert("추가하지 못했습니다."); b.disabled = false; return;
+          toast("추가하지 못했습니다.", true); b.disabled = false; return;
         }
+        toast(r.name + " 님을 " + legLabel(LEG) + " 명단에 저장 되었습니다.");
         await searchPeople(); load();
       };
       el.appendChild(b);
@@ -892,6 +922,7 @@ $("add-new").onclick = async () => {
   btn.disabled = false;
   if(!res || res.status === "invalid"){ alert("이름을 넣어 주세요."); return; }
   if(res.status === "exists"){ alert("이미 " + legLabel(LEG) + " 명단에 있는 사람입니다."); return; }
+  toast(name + " 님이 " + legLabel(LEG) + " 명단에 저장 되었습니다.");
   $("add-name").value = ""; $("add-phone").value = ""; $("add-note").value = ""; $("add-gender").value = "";
   await searchPeople();
   load();
@@ -1011,6 +1042,7 @@ function paintMembers(){
       ld.disabled = true;
       await peopleRpc("room_leader", { room: MEM_ROOM.room, phone: m.phone,
                                        is_leader: !m.is_leader }).catch(() => null);
+      toast("저장 되었습니다.");
       refreshMembers();
     };
     const del = document.createElement("button");
@@ -1019,6 +1051,7 @@ function paintMembers(){
       if(!confirm(m.name + " 님을 " + roomTitle(MEM_ROOM) + " 에서 뺍니다.")) return;
       del.disabled = true;
       await peopleRpc("room_del", { room: MEM_ROOM.room, phone: m.phone }).catch(() => null);
+      toast("삭제 되었습니다.");
       refreshMembers();
     };
     el.appendChild(fi); el.appendChild(ld); el.appendChild(del);
@@ -1061,7 +1094,8 @@ async function searchMembers(){
       b.disabled = true;
       const res = await peopleRpc("room_add", { room: MEM_ROOM.room, phone: r.phone,
                                                 name: r.name, note: r.note }).catch(() => null);
-      if(!res || res.status !== "ok"){ alert("넣지 못했습니다."); b.disabled = false; return; }
+      if(!res || res.status !== "ok"){ toast("넣지 못했습니다.", true); b.disabled = false; return; }
+      toast(r.name + " 님이 " + roomTitle(MEM_ROOM) + " 에 저장 되었습니다.");
       refreshMembers();
     };
     el.appendChild(fi); el.appendChild(b);
@@ -1086,7 +1120,8 @@ $("mem-new").onclick = async () => {
                                             note: $("mem-note").value.trim(),
                                             gender: $("mem-gender").value }).catch(() => null);
   btn.disabled = false;
-  if(!res || res.status !== "ok"){ alert("넣지 못했습니다. 이름을 확인해 주세요."); return; }
+  if(!res || res.status !== "ok"){ toast("넣지 못했습니다. 이름을 확인해 주세요.", true); return; }
+  toast(name + " 님이 " + roomTitle(MEM_ROOM) + " 에 저장 되었습니다.");
   $("mem-name").value = ""; $("mem-phone").value = ""; $("mem-note").value = ""; $("mem-gender").value = "";
   refreshMembers();
 };
@@ -1363,5 +1398,6 @@ $("code").addEventListener("keydown", e => { if(e.key === "Enter") enter(); });
 const saved = new URLSearchParams(location.search).get("code") || localStorage.getItem("bus_admin_code");
 if(saved){ $("code").value = saved; enter(); }
 </script>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
