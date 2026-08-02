@@ -29,6 +29,9 @@
   h1{margin:0;font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.045em}
   .ghost{font-size:19px;font-weight:800;letter-spacing:-.04em;color:#E2E0D9;white-space:nowrap;padding-top:6px}
   h2{font-size:13px;font-weight:700;margin:30px 0 10px;color:var(--gray);text-align:center}
+  /* 공통 설정 / 개별 설정을 가르는 큰 머리 */
+  h2.sec{margin:38px 0 4px;padding-top:20px;border-top:1px solid var(--hair);
+    font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.02em}
   input,button{font-family:inherit}
   input[type=text],input[type=password]{width:100%;height:44px;padding:0 13px;border:1px solid var(--btn);
     border-radius:var(--r);background:#fff;font-size:15px;color:var(--ink)}
@@ -63,7 +66,6 @@
   .drop b{display:block;font-size:15px;font-weight:700}
   .drop span{font-size:13px;color:var(--gray)}
   #file{display:none}
-  .extrahead{margin-top:30px;border-top:1px solid var(--hair);padding-top:18px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
   .chip{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 6px 0 11px;
     border:1px solid var(--btn);border-radius:var(--r);background:#fff;font-size:13px;font-weight:700}
@@ -197,58 +199,69 @@
         예: "가는차 탑승"도 "출발 8/10"도 모두 가는 편 탑승으로 읽힙니다.</p>
     </details>
 
-    <h2>편별 작업</h2>
+    <h2 class="sec">공통 설정 — 가는 편 · 오는 편 · 숙박에 모두 적용</h2>
+
+    <h2>행사 이름</h2>
+    <input id="title-input" type="text" placeholder="행사 이름">
+    <div class="row"><button id="save-title" class="small">행사 이름 저장</button></div>
+    <p class="hint">모든 화면 맨 위에 표시됩니다.</p>
+
+    <h2>소속 · 팀명</h2>
+    <div class="row">
+      <input id="group-in" type="text" placeholder="예: 운영진">
+      <button id="group-add" class="small">등록</button>
+    </div>
+    <div class="chips" id="group-list"></div>
+    <p class="hint">참가자 요청 화면의 선택지입니다. 명단에 이미 있는 소속은 자동으로 포함됩니다.</p>
+
+    <h2>운영 코드</h2>
+    <input id="new-code" type="text" placeholder="새 운영 코드">
+    <div class="row"><button id="save-code" class="small">운영 코드 변경</button></div>
+    <p class="hint">운영자 화면과 이 화면을 여는 코드입니다. 6자 이상으로 정해 주세요.</p>
+
+    <h2>전체 삭제</h2>
+    <div class="row"><button id="purge-all" class="small danger">전체 삭제</button></div>
+    <p class="hint">가는 편 · 오는 편 명단과 숙박 · 방 배정을 모두 지웁니다.
+      행사가 끝나면 전체 삭제로 번호를 남기지 마세요.</p>
+
+    <h2 class="sec">개별 설정 — 고른 것에만 적용</h2>
     <div class="tabs">
       <button id="tab-out" class="on">가는 편</button>
       <button id="tab-back">오는 편</button>
+      <button id="tab-room">숙박</button>
     </div>
-    <p class="hint" style="margin-top:0" id="paste-head">아래 버튼은 지금 고른 편에만 적용됩니다.</p>
-    <div class="row">
-      <button id="copy">반대 편으로 복사</button>
-      <button id="reset" class="small">탑승 기록 리셋</button>
-    </div>
-    <p class="hint">복사는 명단만 옮기고 탑승 기록은 가져가지 않습니다.</p>
+    <p class="hint" style="margin-top:0" id="paste-head">아래 설정은 지금 고른 가는 편에만 적용됩니다.</p>
 
-    <p class="hint" style="margin-top:22px">
-      <b>한 명씩 넣고 빼는 일</b>은 <a href="admin.html">탑승 · 숙박 현황</a>에서 바로 합니다 —
-      탑승 명단은 가는 편 · 오는 편 탭에서, 방 배정은 숙박 탭에서 하세요.</p>
-
-    <div class="row extrahead"><button id="extra-toggle">추가 설정 열기</button></div>
-
-    <div id="extra" class="hidden">
+    <div id="leg-set">
       <h2>차량 · 탑승 위치</h2>
       <input id="bus-in" type="text" placeholder="차량 번호 (예: 12가 3456)">
       <input id="place-in" type="text" placeholder="탑승 위치 (예: 강원대 백녕관 앞)" style="margin-top:8px">
       <div class="row"><button id="save-info" class="small">차량 · 탑승 위치 저장</button></div>
-      <p class="hint">입력하면 참가자 탑승 확인 화면 맨 아래에 표시됩니다. 비워 두면 표시되지 않습니다.</p>
+      <p class="hint">참가자 탑승 확인 화면 맨 아래에 표시됩니다. 비워 두면 표시되지 않습니다.
+        <br><b>두 편이 같은 값을 씁니다.</b></p>
 
+      <h2>명단 정리</h2>
+      <div class="row">
+        <button id="copy">반대 편으로 복사</button>
+        <button id="reset" class="small">탑승 기록 리셋</button>
+      </div>
+      <div class="row"><button id="purge" class="small danger">이 편 명단 삭제</button></div>
+      <p class="hint">복사는 명단만 옮기고 탑승 기록은 가져가지 않습니다.</p>
+    </div>
+
+    <div id="room-set" class="hidden">
       <h2>숙소 안내 문구</h2>
       <textarea id="key-guide" placeholder="방키 수령 안내 (예: 방키는 18시부터 1층 로비 운영석에서 방장이 받아 가세요.)"></textarea>
       <textarea id="co-guide" placeholder="체크아웃 안내 (예: 퇴실 전 방키를 프런트에 반납해 주세요.)" style="margin-top:8px"></textarea>
       <div class="row"><button id="save-guides" class="small">숙소 안내 저장</button></div>
-      <p class="hint">참가자의 숙소 방 안내 화면에 그대로 표시됩니다. 비워 두면 표시되지 않습니다.</p>
-
-      <h2>소속 · 팀명</h2>
-      <div class="row">
-        <input id="group-in" type="text" placeholder="예: 운영진">
-        <button id="group-add" class="small">등록</button>
-      </div>
-      <div class="chips" id="group-list"></div>
-      <p class="hint">참가자 요청 화면의 선택지입니다. 명단에 이미 있는 소속은 자동으로 포함됩니다.</p>
-
-      <h2>정리</h2>
-      <div class="row">
-        <button id="purge" class="small danger">이 편 명단 삭제</button>
-        <button id="purge-all" class="small danger">전체 삭제</button>
-      </div>
-      <p class="hint">명단 삭제는 지금 선택한 편에만 적용됩니다. 행사가 끝나면 전체 삭제로 번호를 남기지 마세요.</p>
-
-      <h2>설정</h2>
-      <input id="title-input" type="text" placeholder="행사 이름">
-      <div class="row"><button id="save-title" class="small">행사 이름 저장</button></div>
-      <input id="new-code" type="text" placeholder="새 운영 코드" style="margin-top:12px">
-      <div class="row"><button id="save-code" class="small">운영 코드 변경</button></div>
+      <p class="hint">참가자의 숙소 방 안내 화면에 그대로 표시됩니다. 비워 두면 표시되지 않습니다.
+        방키 수령·반납 버튼은 방장에게만 보입니다.</p>
     </div>
+
+    <p class="hint" style="margin-top:22px">
+      <b>한 명씩 넣고 빼는 일</b>은 <a href="admin.html">탑승 · 숙박 현황</a>에서 바로 합니다 —
+      탑승 명단은 가는 편 · 오는 편 탭에서, 방 배정은 숙박 탭에서 하세요.
+      <br>참가자에게 열고 닫는 On/Off 스위치도 그 화면에 있습니다.</p>
 
     <div class="row" style="margin-top:26px">
       <a class="linkbtn" href="admin.html">탑승 · 숙박 현황</a>
@@ -468,13 +481,6 @@ function groupPeople(rows){
   return order.map(k => map[k]);
 }
 
-$("extra-toggle").onclick = () => {
-  const box = $("extra");
-  const willOpen = box.classList.contains("hidden");
-  box.classList.toggle("hidden", !willOpen);
-  $("extra-toggle").textContent = willOpen ? "추가 설정 닫기" : "추가 설정 열기";
-  if(willOpen){ loadGroups(); loadInfo(); loadGuides(); }
-};
 
 async function loadInfo(){
   try{
@@ -748,10 +754,7 @@ drop.addEventListener("drop", (e) => {
 function render(d){
   $("title-band").textContent = d.title || "행사";
   if(document.activeElement !== $("title-input")) $("title-input").value = d.title || "";
-  $("tab-out").classList.toggle("on", LEG === "out");
-  $("tab-back").classList.toggle("on", LEG === "back");
-  $("paste-head").textContent =
-    "아래 칸과 버튼은 지금 고른 " + legLabel(LEG) + "에만 적용됩니다.";
+  paintTabs();
 
   const t = d.totals || {};
   const c = d.collecting || { out: d.open, back: d.open };
@@ -775,13 +778,30 @@ async function load(){
   }catch(e){}
 }
 
-async function setLeg(leg){
-  LEG = leg;
-  await rpc("set_leg", { leg: leg });
+/* 개별 설정에서 무엇을 손보고 있는지. "out"/"back" 은 그 편, "room" 은 숙박.
+   숙박은 편이 아니므로 LEG 는 건드리지 않는다. */
+let TAB = "out";
+
+function paintTabs(){
+  ["out","back","room"].forEach(k => $("tab-" + k).classList.toggle("on", TAB === k));
+  $("leg-set").classList.toggle("hidden", TAB === "room");
+  $("room-set").classList.toggle("hidden", TAB !== "room");
+  $("paste-head").textContent = TAB === "room"
+    ? "아래 설정은 숙박에만 적용됩니다."
+    : "아래 설정은 지금 고른 " + legLabel(TAB) + "에만 적용됩니다.";
+}
+
+async function setTab(tab){
+  TAB = tab;
+  paintTabs();
+  if(tab === "room"){ loadGuides(); return; }
+  LEG = tab;
+  await rpc("set_leg", { leg: tab });
   load();
 }
-$("tab-out").onclick = () => setLeg("out");
-$("tab-back").onclick = () => setLeg("back");
+$("tab-out").onclick = () => setTab("out");
+$("tab-back").onclick = () => setTab("back");
+$("tab-room").onclick = () => setTab("room");
 
 /* 되돌릴 수 없는 버튼은 브라우저 confirm 을 쓰지 않는다.
    반복해서 뜨면 크롬이 "이 페이지가 추가 대화상자를 만들지 못하게 하기" 를
@@ -864,11 +884,14 @@ async function enter(){
   const d = await rpc("list").catch(() => null);
   if(!d || d.status !== "ok"){ $("gate-msg").textContent = "코드가 맞지 않습니다."; return; }
   LEG = d.active_leg || "out";
+  TAB = LEG;
   localStorage.setItem("bus_admin_code", CODE);
   $("gate").classList.add("hidden");
   $("panel").classList.remove("hidden");
   clearSheet();
   render(d);
+  // 설정을 접어 두지 않으므로 열자마자 지금 값들을 채워 둔다.
+  loadGroups(); loadInfo(); loadGuides();
 }
 $("enter").onclick = enter;
 $("code").addEventListener("keydown", e => { if(e.key === "Enter") enter(); });
