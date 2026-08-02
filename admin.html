@@ -26,6 +26,8 @@
   .kicker{margin:0 0 12px;font-size:12px;font-weight:700;color:var(--gray)}
   .head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:22px}
   h1{margin:0;font-size:34px;line-height:1.06;font-weight:800;letter-spacing:-.045em}
+  /* 한 줄로 두는 제목. 좁은 화면에서도 줄이 넘어가지 않게 조금 줄인다. */
+  h1.one{white-space:nowrap;font-size:clamp(22px, 7.2vw, 30px)}
   .ghost{font-size:19px;font-weight:800;letter-spacing:-.04em;color:#E2E0D9;white-space:nowrap;padding-top:6px}
   h2{font-size:13px;font-weight:700;margin:30px 0 10px;color:var(--gray)}
   h2.h2row{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -97,6 +99,19 @@
   .room.out .rb .st{color:var(--warn)}
   .room.in .rb .st{color:var(--go)}
   .blank{padding:22px 4px;text-align:center;color:var(--gray);font-size:14px}
+  /* 방별 / 소속별 전환 */
+  .tabs.sub{margin-bottom:10px}
+  .tabs.sub button{flex:1 1 0;min-width:0;height:38px;padding:0;background:var(--btnbg);
+    border:1px solid var(--btn);border-radius:var(--r);color:var(--gray);
+    font-weight:700;font-size:13px}
+  .tabs.sub button.on{background:#fff;color:#000;font-weight:800;box-shadow:inset 0 -3px 0 var(--blue)}
+  /* 소속별 보기의 소속 머리 */
+  .ghead{margin:14px 0 6px;font-size:14px;font-weight:800;letter-spacing:-.02em;
+    display:flex;align-items:baseline;gap:8px}
+  .ghead:first-child{margin-top:0}
+  .ghead span{font-size:12px;font-weight:600;color:var(--gray)}
+  .shared{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;
+    background:#FFF3E6;color:#9A5B00;font-size:11px;font-weight:800}
   ul{list-style:none;margin:0;padding:0;background:#fff;border:1px solid var(--hair);
     border-radius:var(--r);overflow:hidden}
   li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--hair)}
@@ -223,7 +238,7 @@
 
     <p class="kicker" id="title-band">행사</p>
     <div class="head">
-      <h1>탑승 · 숙박<br>현황</h1>
+      <h1 class="one">탑승 · 숙박 현황</h1>
       <a class="linkbtn" href="manage.html">명단 관리</a>
     </div>
 
@@ -278,6 +293,10 @@
       <h2 class="h2row">방 목록 — 방장은 ★ 표시
         <button id="new-room" class="small">방 만들기</button>
         <button id="sms-all-rooms" class="small">전체 문자</button></h2>
+      <div class="tabs sub">
+        <button id="view-room" class="on">방별 보기</button>
+        <button id="view-note">소속별 보기</button>
+      </div>
       <div class="rooms" id="room-list"></div>
       <p class="hint">호수 버튼으로 실제 호수를 넣거나 고칩니다.
         방 배정 전체는 명단 관리의 통합 시트로 올립니다.</p>
@@ -403,6 +422,7 @@ let TAB = "out";
 let COLLECT = { out:true, back:true };
 let ROOM_OPEN = true;
 let ROOMS = [];
+let ROOM_VIEW = "room";   // "room" = 방별 보기 / "note" = 소속별 보기
 let SMS_LISTS = { left:[], done:[] };   // 목록 전체로 문자 보낼 때 쓰는 현재 명단
 
 async function callRpc(fn, body){
@@ -523,9 +543,10 @@ function paintSwitches(){
   setSwitch("sw-room", ROOM_OPEN);
   const on = LEGS.filter(l => COLLECT[l]).map(legLabel);
   if(ROOM_OPEN) on.push("숙박");
-  $("swhint").textContent = on.length
-    ? "이름을 누르면 아래 현황이 바뀝니다. 지금 참가자에게 열려 있는 것: " + on.join(" · ")
-    : "모두 Off — 참가자 화면이 대기 상태로 잠깁니다.";
+  $("swhint").textContent = (on.length
+    ? "지금 참가자에게 열려 있는 것: " + on.join(" · ")
+    : "모두 Off — 참가자 화면이 대기 상태로 잠깁니다.") +
+    "  ·  가는 편과 오는 편은 한 번에 하나만 켜집니다.";
 }
 
 // 위쪽 탭에 따라 아래에 탑승 현황 또는 방 목록을 보여 준다.
@@ -665,16 +686,35 @@ function roomCard(r){
 
   const rb = document.createElement("div"); rb.className = "rb";
   const st = document.createElement("span"); st.className = "st";
+  const KEYMSG = { key_out:"방키를 내줬습니다.", key_in:"방키를 반납받았습니다.",
+                   key_in_direct:"방키를 반납받았습니다.",
+                   undo_out:"수령을 취소했습니다.", undo_in:"반납을 취소했습니다." };
   const mk = (txt, cls, action) => {
     const b = document.createElement("button");
     b.textContent = txt; if(cls) b.className = cls;
-    b.onclick = async () => { b.disabled = true; try{ await roomRpc(action, { room: r.room }); }catch(e){} loadRooms(); };
+    b.onclick = async () => {
+      b.disabled = true;
+      try{
+        if(action === "key_in_direct"){
+          // 수령을 안 누른 방. 수령으로 표시한 뒤 바로 반납까지 넘긴다.
+          await roomRpc("key_out", { room: r.room });
+          await roomRpc("key_in",  { room: r.room });
+        }else{
+          await roomRpc(action, { room: r.room });
+        }
+        toast(roomTitle(r) + " — " + KEYMSG[action]);
+      }catch(e){ toast("처리하지 못했습니다.", true); }
+      loadRooms();
+    };
     return b;
   };
+  // 수령과 반납을 늘 나란히 둔다. 방장이 수령을 안 눌렀는데 반납만 하러 오는
+  // 일이 흔해서, 그때 두 번 누르지 않고 바로 반납할 수 있어야 한다.
   if(r.state === "pending"){
     st.textContent = "키 수령 전";
     rb.appendChild(st);
     rb.appendChild(mk("키 수령", "hl", "key_out"));
+    rb.appendChild(mk("키 반납", "small", "key_in_direct"));
   }else if(r.state === "out"){
     st.textContent = "키 사용 중 · " + (r.out_at || "--:--") + " 수령";
     rb.appendChild(st);
@@ -709,7 +749,53 @@ function renderRooms(d){
     box.appendChild(p);
     return;
   }
-  ROOMS.forEach(r => box.appendChild(roomCard(r)));
+  if(ROOM_VIEW === "note") renderByNote(box);
+  else ROOMS.forEach(r => box.appendChild(roomCard(r)));
+}
+
+/* 소속별 보기 — 소속(대학+팀명)으로 묶어서 그 소속이 쓰는 방을 늘어놓는다.
+   한 방을 여러 소속이 같이 쓰면 그 방은 각 소속 아래에 다 나오고,
+   "함께 쓰는 방" 으로 어떤 팀들이 같이 있는지 이어서 적는다. */
+function notesOf(r){
+  const seen = {}, out = [];
+  (r.members || []).forEach(m => {
+    const n = (m.note || "").trim() || "소속 없음";
+    if(!seen[n]){ seen[n] = 1; out.push(n); }
+  });
+  return out;
+}
+
+function renderByNote(box){
+  const by = {}, order = [];
+  ROOMS.forEach(r => notesOf(r).forEach(n => {
+    if(!by[n]){ by[n] = []; order.push(n); }
+    by[n].push(r);
+  }));
+  order.sort((a, b) => a === "소속 없음" ? 1 : b === "소속 없음" ? -1 : a.localeCompare(b, "ko"));
+
+  order.forEach(n => {
+    const rooms = by[n];
+    const people = rooms.reduce((s, r) =>
+      s + (r.members || []).filter(m => ((m.note || "").trim() || "소속 없음") === n).length, 0);
+    const h = document.createElement("div"); h.className = "ghead";
+    h.appendChild(document.createTextNode(n));
+    const sub = document.createElement("span");
+    sub.textContent = people + "명 · " + rooms.length + "실";
+    h.appendChild(sub);
+    box.appendChild(h);
+
+    rooms.forEach(r => {
+      const card = roomCard(r);
+      const others = notesOf(r).filter(x => x !== n);
+      if(others.length){
+        // 같은 방을 다른 팀과 나눠 쓰는 경우 — 이어서 적어 준다.
+        const s = document.createElement("span"); s.className = "shared";
+        s.textContent = "함께 쓰는 방 · " + others.join(" · ");
+        card.querySelector(".rm").appendChild(s);
+      }
+      box.appendChild(card);
+    });
+  });
 }
 
 // 방과 상관없이 배정된 사람 전체를 15명씩 끊어 보낸다. (같은 번호는 한 번만)
@@ -952,18 +1038,27 @@ async function setTab(tab){
   }
   load();
 }
-// 가는 편 / 오는 편 취합을 각각 On/Off 로 켜고 끈다.
+/* 가는 편 / 오는 편은 동시에 켜 두지 않는다. 같은 날 두 편을 함께 받는 일이
+   없어서, 한쪽을 켜면 다른 쪽은 자동으로 내린다. 참가자 화면에서 어느 편을
+   확인하는 것인지 헷갈릴 일도 없어진다. (숙박 스위치는 따로 논다.) */
 async function toggleCollect(leg){
   const sw = $("sw-" + leg);
+  const other = leg === "out" ? "back" : "out";
   const next = !COLLECT[leg];
-  sw.disabled = true;
+  sw.disabled = true; $("sw-" + other).disabled = true;
   try{
     await rpc("set_collecting", { leg: leg, open: next });
     COLLECT[leg] = next;
+    if(next && COLLECT[other]){
+      await rpc("set_collecting", { leg: other, open: false });
+      COLLECT[other] = false;
+    }
     paintSwitches();
-  }catch(e){}
-  finally{ sw.disabled = false; }
-  load();
+    toast(next ? legLabel(leg) + " 만 켰습니다." : legLabel(leg) + " 를 껐습니다.");
+  }catch(e){ toast("바꾸지 못했습니다.", true); }
+  finally{ sw.disabled = false; $("sw-" + other).disabled = false; }
+  // 켜 둔 편을 보는 게 자연스러우니 그 편으로 옮겨 준다.
+  if(next && TAB !== leg) setTab(leg); else load();
 }
 // 숙소 방 안내를 참가자에게 열지 말지.
 async function toggleRoom(){
@@ -984,6 +1079,15 @@ LEGS.forEach(leg => {
 });
 $("tab-room").onclick = (e) => { if(e.target.closest(".switch")) return; setTab("room"); };
 $("sw-room").onclick = (e) => { e.stopPropagation(); toggleRoom(); };
+
+function setRoomView(v){
+  ROOM_VIEW = v;
+  $("view-room").classList.toggle("on", v === "room");
+  $("view-note").classList.toggle("on", v === "note");
+  loadRooms();
+}
+$("view-room").onclick = () => setRoomView("room");
+$("view-note").onclick = () => setRoomView("note");
 
 /* ---------------------------------------------------------------- 방 인원
    방 배정 전체는 명단 관리의 시트로 올리고, 여기서는 한 명씩 넣고 뺀다. */
