@@ -93,6 +93,7 @@
   .rrow + .rrow{border-top:1px solid var(--hair)}
   .rrow .who2{font-weight:700}
   .rrow .who2 .ld{font-size:12px;font-weight:800;color:var(--navy)}
+  .rrow .who2 .nt{margin-left:5px;font-size:12px;font-weight:700;color:var(--gray)}
   .rrow a{font-family:var(--mono);font-size:13px;color:var(--gray);text-decoration:none}
   .gblock{margin-top:22px}
   .gblock .gt{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--gray)}
@@ -164,6 +165,7 @@
         <p class="tag" id="rm-tag">내 방</p>
         <p class="rn" id="rm-no">—</p>
         <p class="rl hidden" id="rm-label">—</p>
+        <p class="rl hidden" id="rm-nights">—</p>
         <div class="rule"></div>
         <div id="rm-members"></div>
       </div>
@@ -657,6 +659,11 @@ function renderRoom(d){
   $("rm-label").textContent = label;
   $("rm-label").classList.toggle("hidden", !(no && label));
 
+  // 하루만 묵는 사람이 있어서 본인 숙박일을 같이 적어 준다.
+  const nights = [d.night1 ? "1일차" : "", d.night2 ? "2일차" : ""].filter(Boolean);
+  $("rm-nights").textContent = "숙박 — " + nights.join(" · ");
+  $("rm-nights").classList.toggle("hidden", !nights.length);
+
   const box = $("rm-members");
   box.innerHTML = "";
   (d.members || []).forEach(m => {
@@ -667,6 +674,11 @@ function renderRoom(d){
       const ld = document.createElement("span"); ld.className = "ld";
       ld.textContent = "방장";
       who.appendChild(ld);
+    }
+    if(!(m.night1 && m.night2) && (m.night1 || m.night2)){
+      const nt = document.createElement("span"); nt.className = "nt";
+      nt.textContent = m.night1 ? "1일차만" : "2일차만";
+      who.appendChild(nt);
     }
     const tel = document.createElement("a");
     tel.href = "tel:" + m.phone;

@@ -217,8 +217,11 @@ function roomCard(r){
   const rn = document.createElement("div"); rn.className = "rn";
   rn.textContent = roomTitle(r) + " ";
   const sub = document.createElement("span");
+  // 1일차와 2일차 이용자가 다른 방이 있어서 며칠치인지 같이 보여 준다.
+  const nights = (r.n1 || 0) + (r.n2 || 0)
+    ? " · 1일차 " + (r.n1 || 0) + "명 · 2일차 " + (r.n2 || 0) + "명" : "";
   sub.textContent = (r.room_no && r.room_label ? "· " + r.room_label + " " : "") +
-                    "· " + r.members.length + "명" +
+                    "· " + r.members.length + "명" + nights +
                     (r.room_no ? "" : " · 호수 미입력");
   rn.appendChild(sub);
   const smsBtn = document.createElement("button");
@@ -235,15 +238,25 @@ function roomCard(r){
   rt.appendChild(rn); rt.appendChild(smsBtn); rt.appendChild(noBtn);
 
   const rm = document.createElement("div"); rm.className = "rm";
+  // 숙박일 정보가 있는 방에서만, 이틀 다 묵지 않는 사람에게 표시를 붙인다.
+  const hasNights = (r.n1 || 0) + (r.n2 || 0) > 0;
+  const stayTag = (m) => {
+    if(!hasNights) return "";
+    if(m.night1 && m.night2) return "";
+    if(m.night1) return "(1일차만)";
+    if(m.night2) return "(2일차만)";
+    return "(숙박 없음)";
+  };
   r.members.forEach((m, i) => {
     if(i) rm.appendChild(document.createTextNode(", "));
+    const tag = stayTag(m);
     if(m.is_leader){
       const b = document.createElement("b");
       b.textContent = "★" + m.name;
       rm.appendChild(b);
-      rm.appendChild(document.createTextNode(" (" + fmtPhone(m.phone) + ")"));
+      rm.appendChild(document.createTextNode(" (" + fmtPhone(m.phone) + ")" + (tag ? " " + tag : "")));
     }else{
-      rm.appendChild(document.createTextNode(m.name));
+      rm.appendChild(document.createTextNode(m.name + (tag ? " " + tag : "")));
     }
   });
 
@@ -280,7 +293,10 @@ function render(d){
   $("c-rooms").textContent = ROOMS.length;
   $("c-out").textContent = ROOMS.filter(r => r.state === "out").length;
   $("c-in").textContent = ROOMS.filter(r => r.state === "in").length;
-  $("stamp").textContent = (d.unassigned ? "방 미배정 " + d.unassigned + "명 · " : "") +
+  const g = d.nights || {};
+  $("stamp").textContent =
+    ((g.n1 || g.n2) ? "1일차 " + (g.n1 || 0) + "명 · 2일차 " + (g.n2 || 0) + "명 · " : "") +
+    (d.unassigned ? "방 미배정 " + d.unassigned + "명 · " : "") +
     "갱신 " + new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 
   const box = $("room-list");
