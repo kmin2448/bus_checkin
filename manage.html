@@ -41,6 +41,8 @@
     display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden}
   button.small{font-size:13px;padding:0 8px}
   button.danger{color:var(--warn)}
+  /* 한 번 더 눌러야 실행되는 상태 */
+  button.armed{background:#FDEDEA;border-color:var(--warn);color:var(--warn);font-weight:800}
   button.hl{background:#fff;border:1.5px solid var(--navy);color:var(--navy);font-weight:800}
   button:focus-visible{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.14)}
   .linkbtn{display:inline-flex;align-items:center;justify-content:center;height:44px;padding:0 18px;
@@ -190,9 +192,8 @@
     <p class="hint">복사는 명단만 옮기고 탑승 기록은 가져가지 않습니다.</p>
 
     <p class="hint" style="margin-top:22px">
-      <b>한 명씩 넣고 빼는 일</b>은 보고 있던 화면에서 바로 합니다 —
-      탑승 명단은 <a href="admin.html">탑승 현황</a>에서,
-      방 배정은 <a href="rooms.html">방키 수불</a>에서 하세요.</p>
+      <b>한 명씩 넣고 빼는 일</b>은 <a href="admin.html">탑승 · 숙박 현황</a>에서 바로 합니다 —
+      탑승 명단은 가는 편 · 오는 편 탭에서, 방 배정은 숙박 탭에서 하세요.</p>
 
     <div class="row extrahead"><button id="extra-toggle">추가 설정 열기</button></div>
 
@@ -232,8 +233,7 @@
     </div>
 
     <div class="row" style="margin-top:26px">
-      <a class="linkbtn" href="admin.html">탑승 현황</a>
-      <a class="linkbtn" href="rooms.html">방키 수불</a>
+      <a class="linkbtn" href="admin.html">탑승 · 숙박 현황</a>
     </div>
   </section>
 
@@ -747,21 +747,66 @@ async function setLeg(leg){
 $("tab-out").onclick = () => setLeg("out");
 $("tab-back").onclick = () => setLeg("back");
 
-$("copy").onclick = async () => {
-  const other = LEG === "out" ? "오는 편" : "가는 편";
-  if(!confirm(legLabel(LEG) + " 명단을 " + other + "으로 복사합니다. 탑승 기록은 복사되지 않습니다.")) return;
-  await rpc("copy_leg");
-  load();
-};
-$("reset").onclick = async () => {
-  if(confirm(legLabel(LEG) + " 탑승 기록을 모두 지웁니다. 명단은 남습니다.")){ await rpc("reset_all"); load(); }
-};
-$("purge").onclick = async () => {
-  if(confirm(legLabel(LEG) + " 명단과 기록을 삭제합니다. 되돌릴 수 없습니다.")){ await rpc("purge", {scope:"leg"}); load(); }
-};
-$("purge-all").onclick = async () => {
-  if(confirm("가는 편·오는 편 명단과 기록을 전부 삭제합니다. 되돌릴 수 없습니다.")){ await rpc("purge", {scope:"all"}); load(); }
-};
+/* 되돌릴 수 없는 버튼은 브라우저 confirm 을 쓰지 않는다.
+   반복해서 뜨면 크롬이 "이 페이지가 추가 대화상자를 만들지 못하게 하기" 를
+   내놓고, 사용자가 그걸 체크하면 그 뒤로 confirm() 이 늘 false 를 돌려준다.
+   그러면 버튼을 눌러도 아무 일도 안 일어나는 것처럼 보인다.
+   그래서 버튼 자체를 두 번 누르게 만들고, 결과는 화면에 적어 준다. */
+function armed(btn, ask, run){
+  let timer = null;
+  const keep = btn.textContent;
+  const reset = () => { clearTimeout(timer); timer = null; btn.textContent = keep;
+                        btn.classList.remove("armed"); };
+  btn.onclick = async () => {
+    if(!timer){
+      btn.textContent = ask;
+      btn.classList.add("armed");
+      timer = setTimeout(reset, 6000);
+      return;
+    }
+    reset();
+    btn.disabled = true;
+    try{
+      // 성공 문구는 run() 이 직접 적는다. 여기서는 실패만 덮어쓴다.
+      const d = await run();
+      if(!(d && d.status === "ok")) say("처리하지 못했습니다. 운영 코드를 확인해 주세요.", true);
+    }catch(e){
+      say("서버에 닿지 못했습니다. " + String(e).slice(0, 120), true);
+    }
+    btn.disabled = false;
+    load();
+  };
+}
+
+function say(msg, bad){
+  const el = $("file-msg");
+  el.className = "hint" + (msg ? (bad ? " bad" : " good") : "");
+  el.textContent = msg;
+}
+
+armed($("copy"), "다시 눌러 복사", async () => {
+  const d = await rpc("copy_leg");
+  if(d && d.status === "ok"){
+    const other = LEG === "out" ? "오는 편" : "가는 편";
+    say(legLabel(LEG) + " 명단을 " + other + "으로 복사했습니다. 탑승 기록은 복사되지 않습니다.");
+  }
+  return d;
+});
+armed($("reset"), "다시 눌러 리셋", async () => {
+  const d = await rpc("reset_all");
+  if(d && d.status === "ok") say(legLabel(LEG) + " 탑승 기록을 모두 지웠습니다. 명단은 남아 있습니다.");
+  return d;
+});
+armed($("purge"), "다시 눌러 삭제", async () => {
+  const d = await rpc("purge", { scope: "leg" });
+  if(d && d.status === "ok") say(legLabel(LEG) + " 명단과 기록을 삭제했습니다.");
+  return d;
+});
+armed($("purge-all"), "정말 전부 삭제", async () => {
+  const d = await rpc("purge", { scope: "all" });
+  if(d && d.status === "ok") say("가는 편 · 오는 편 명단과 숙박 · 방 배정을 전부 삭제했습니다.");
+  return d;
+});
 $("save-title").onclick = async () => { await rpc("set_title", { title: $("title-input").value.trim() }); load(); };
 $("save-code").onclick = async () => {
   const c = $("new-code").value.trim();
