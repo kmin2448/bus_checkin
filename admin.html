@@ -706,6 +706,50 @@ async function loadRooms(){
 // 방 제목: 실제 호수가 있으면 호수를 크게, 임시배정명은 곁들여 보여 준다.
 function roomTitle(r){ return r.room_no || r.room_label || "(이름 없는 방)"; }
 
+/* ---------------------------------------------------------------- 객실 순서
+   방 이름은 <구분><번호> 다(더블1 · 더블온돌8 · 트리플5). 구분을 나열한
+   순서대로 놓고, 같은 구분 안에서는 번호 순이다.
+
+   "더블온돌1" 은 "더블" 로도 시작하므로 **가장 긴 구분이 이긴다.**
+   안 그러면 더블온돌이 전부 더블 무리에 섞인다. */
+let ROOM_ORDER = ["더블","트윈","트리플","더블온돌"];
+
+// 구분을 고를 때 쓰는 이름 — 호수가 아니라 임시배정명이 기준이다.
+const roomName = (r) => (r.room_label || "").trim() || (r.room || "").trim();
+
+function roomKindIdx(name){
+  let best = -1, len = -1;
+  ROOM_ORDER.forEach((p, i) => {
+    const pre = (p || "").trim();
+    if(pre && name.indexOf(pre) === 0 && pre.length > len){ best = i; len = pre.length; }
+  });
+  return best < 0 ? 9999 : best;   // 목록에 없는 구분은 맨 뒤로
+}
+
+function roomSeq(name){
+  const d = name.replace(/\D/g, "");
+  return d ? parseInt(d.slice(0, 9), 10) : 0;
+}
+
+function sortRooms(list){
+  return list.slice().sort((a, b) => {
+    const na = roomName(a), nb = roomName(b);
+    const ia = roomKindIdx(na), ib = roomKindIdx(nb);
+    if(ia !== ib) return ia - ib;
+    const sa = roomSeq(na), sb = roomSeq(nb);
+    if(sa !== sb) return sa - sb;
+    return na.localeCompare(nb, "ko");
+  });
+}
+
+async function loadRoomOrder(){
+  try{
+    const d = await callRpc("bus_room_order", { p_code: CODE });
+    if(d && d.status === "ok")
+      ROOM_ORDER = (d.order || "").split(",").map(x => x.trim()).filter(Boolean);
+  }catch(e){}
+}
+
 // 성별은 시트에 적힌 대로 두고(남 · 여 · M · F …) 첫 글자로만 가른다.
 function genderOf(v){
   const c = (v || "").trim().toLowerCase();
@@ -840,7 +884,7 @@ function renderRooms(d){
 
   const box = $("room-list");
   box.innerHTML = "";
-  const list = ROOMS.filter(hitRoom);
+  const list = sortRooms(ROOMS.filter(hitRoom));
   if(!list.length){
     const p = document.createElement("div");
     p.className = "blank";
@@ -886,7 +930,7 @@ function renderByNote(box, list){
     h.appendChild(sub);
     box.appendChild(h);
 
-    rooms.forEach(r => {
+    sortRooms(rooms).forEach(r => {
       const card = roomCard(r);
       const others = notesOf(r).filter(x => x !== n);
       if(others.length){
@@ -1634,6 +1678,7 @@ async function enter(){
   $("gate").classList.add("hidden");
   $("panel").classList.remove("hidden");
   render(d);
+  await loadRoomOrder();
   loadRooms();
   setInterval(load, 7000);
 }

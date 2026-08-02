@@ -115,6 +115,15 @@
   .pick .ps{margin:7px 0 0;font-size:13px;line-height:1.6;color:var(--gray)}
   .backlink{display:block;text-align:center;margin-top:26px;font-size:13px;font-weight:600;
     color:var(--gray);text-decoration:underline;text-underline-offset:4px}
+  /* 객실 표시 순서 */
+  .ord{margin-top:10px;border-top:1px solid var(--hair)}
+  .orow{display:flex;align-items:center;gap:6px;padding:8px 2px;border-bottom:1px solid var(--hair)}
+  .orow .oi{flex:none;width:22px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--gray)}
+  .orow .on{flex:1;min-width:0;font-size:15px;font-weight:700;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .orow .on span{font-size:12px;font-weight:500;color:var(--gray);margin-left:6px}
+  .orow button{flex:none;width:34px;height:34px;padding:0;font-size:13px}
+  .orow button.x{color:var(--warn)}
   /* 호수 일괄 입력 표 */
   .notab{margin-top:10px;border-top:1px solid var(--hair)}
   .norow{display:flex;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--hair)}
@@ -298,6 +307,21 @@
     </div>
 
     <div id="room-set" class="hidden">
+      <h2>객실 표시 순서</h2>
+      <p class="hint" style="margin-top:0">방 이름 앞의 같은 말이 방 구분입니다
+        (더블1~6 → <b>더블</b>). 아래 순서대로 방 목록이 놓이고, 같은 구분 안에서는
+        번호 순입니다.</p>
+      <div class="ord" id="ord-list"></div>
+      <div class="row">
+        <input id="ord-in" type="text" placeholder="구분 추가 (예: 온돌)">
+        <button id="ord-add" class="small">추가</button>
+      </div>
+      <p class="hint" id="ord-msg"></p>
+      <div class="row">
+        <button id="ord-save" class="hl">순서 저장</button>
+        <button id="ord-reset" class="small">기본값</button>
+      </div>
+
       <h2>호수(객실번호) 입력</h2>
       <p class="hint" style="margin-top:0" id="no-msg">지금 배정된 방 목록입니다.
         칸을 오가며 호수를 쭉 넣은 뒤 아래 저장을 한 번 누르세요.</p>
@@ -851,7 +875,7 @@ function openSection(k){
   $("menu").classList.add("hidden");
   SECTIONS.forEach(x => $("sec-" + x).classList.toggle("hidden", x !== k));
   if(k === "common"){ loadGroups(); }
-  if(k === "each"){ loadInfo(); if(TAB === "room"){ loadGuides(); loadRoomNos(); } }
+  if(k === "each"){ loadInfo(); if(TAB === "room"){ loadGuides(); loadRoomNos().then(paintOrder); loadOrder(); } }
   window.scrollTo(0, 0);
 }
 
@@ -877,10 +901,124 @@ function paintTabs(){
 async function setTab(tab){
   TAB = tab;
   paintTabs();
-  if(tab === "room"){ loadGuides(); loadRoomNos(); return; }
+  if(tab === "room"){ loadGuides(); loadRoomNos().then(paintOrder); loadOrder(); return; }
   LEG = tab;
   await rpc("set_leg", { leg: tab });
   load();
+}
+
+/* ---------------------------------------------------------------- 객실 순서
+   방 이름은 <구분><번호> 다(더블1 · 더블온돌8). 구분을 나열한 순서대로 놓고,
+   같은 구분 안에서는 번호 순이다.
+   "더블온돌1" 은 "더블" 로도 시작하므로 **가장 긴 구분이 이긴다.** */
+const ORD_DEFAULT = ["더블","트윈","트리플","더블온돌"];
+let ORDER = ORD_DEFAULT.slice();
+let ROOMS = [];   // 호수 표와 순서 미리보기에 함께 쓴다
+
+const roomName = (r) => (r.room_label || "").trim() || (r.room || "").trim();
+
+function roomKindIdx(name){
+  let best = -1, len = -1;
+  ORDER.forEach((p, i) => {
+    const pre = (p || "").trim();
+    if(pre && name.indexOf(pre) === 0 && pre.length > len){ best = i; len = pre.length; }
+  });
+  return best < 0 ? 9999 : best;
+}
+function roomSeq(name){
+  const d = name.replace(/\D/g, "");
+  return d ? parseInt(d.slice(0, 9), 10) : 0;
+}
+function sortRooms(list){
+  return list.slice().sort((a, b) => {
+    const na = roomName(a), nb = roomName(b);
+    const ia = roomKindIdx(na), ib = roomKindIdx(nb);
+    if(ia !== ib) return ia - ib;
+    const sa = roomSeq(na), sb = roomSeq(nb);
+    if(sa !== sb) return sa - sb;
+    return na.localeCompare(nb, "ko");
+  });
+}
+
+// 지금 방 목록에서 각 구분이 몇 실인지 세어 준다. 목록에 없는 구분도 짚어 준다.
+function orderCounts(){
+  const cnt = {}, missing = [];
+  ROOMS.forEach(r => {
+    const n = roomName(r);
+    const i = roomKindIdx(n);
+    if(i === 9999){
+      // 숫자를 떼면 구분이 남는다. 어떤 이름이 빠져 있는지 알려 주려는 것.
+      const k = n.replace(/[0-9].*$/, "").trim() || n;
+      if(k && missing.indexOf(k) < 0) missing.push(k);
+    }else{
+      cnt[ORDER[i]] = (cnt[ORDER[i]] || 0) + 1;
+    }
+  });
+  return { cnt: cnt, missing: missing };
+}
+
+function paintOrder(){
+  const box = $("ord-list");
+  box.innerHTML = "";
+  const info = orderCounts();
+  ORDER.forEach((p, i) => {
+    const el = document.createElement("div"); el.className = "orow";
+    const oi = document.createElement("span"); oi.className = "oi"; oi.textContent = (i + 1);
+    const on = document.createElement("div"); on.className = "on";
+    on.textContent = p;
+    const c = document.createElement("span");
+    c.textContent = info.cnt[p] ? info.cnt[p] + "실" : "해당 방 없음";
+    on.appendChild(c);
+    const up = document.createElement("button");
+    up.textContent = "↑"; up.title = "위로"; up.disabled = i === 0;
+    up.onclick = () => { ORDER.splice(i - 1, 0, ORDER.splice(i, 1)[0]); paintOrder(); };
+    const dn = document.createElement("button");
+    dn.textContent = "↓"; dn.title = "아래로"; dn.disabled = i === ORDER.length - 1;
+    dn.onclick = () => { ORDER.splice(i + 1, 0, ORDER.splice(i, 1)[0]); paintOrder(); };
+    const x = document.createElement("button");
+    x.className = "x"; x.textContent = "✕"; x.title = "빼기";
+    x.onclick = () => { ORDER.splice(i, 1); paintOrder(); };
+    el.appendChild(oi); el.appendChild(on); el.appendChild(up); el.appendChild(dn); el.appendChild(x);
+    box.appendChild(el);
+  });
+  $("ord-msg").className = "hint" + (info.missing.length ? " bad" : "");
+  $("ord-msg").textContent = info.missing.length
+    ? "목록에 없는 구분: " + info.missing.join(" · ") + " — 맨 뒤에 놓입니다. 추가해 순서를 정하세요."
+    : (ORDER.length ? "저장을 눌러야 반영됩니다." : "구분을 하나도 안 두면 이름 순으로 놓입니다.");
+}
+
+$("ord-add").onclick = () => {
+  const v = $("ord-in").value.trim();
+  if(!v) return;
+  if(ORDER.indexOf(v) >= 0){ toast("이미 있는 구분입니다.", true); return; }
+  ORDER.push(v);
+  $("ord-in").value = "";
+  paintOrder();
+};
+$("ord-in").addEventListener("keydown", e => { if(e.key === "Enter") $("ord-add").click(); });
+$("ord-reset").onclick = () => { ORDER = ORD_DEFAULT.slice(); paintOrder(); };
+
+$("ord-save").onclick = async () => {
+  const btn = $("ord-save");
+  btn.disabled = true;
+  let d;
+  try{ d = await call("bus_room_order", { p_code: CODE, p_order: ORDER.join(",") }); }
+  catch(e){ d = null; }
+  btn.disabled = false;
+  if(!d || d.status !== "ok"){ toast("저장하지 못했습니다.", true); return; }
+  ORDER = (d.order || "").split(",").map(x => x.trim()).filter(Boolean);
+  toast("저장 되었습니다.");
+  paintOrder();
+  loadRoomNos();
+};
+
+async function loadOrder(){
+  try{
+    const d = await call("bus_room_order", { p_code: CODE });
+    if(d && d.status === "ok" && d.order !== undefined)
+      ORDER = (d.order || "").split(",").map(x => x.trim()).filter(Boolean);
+  }catch(e){}
+  paintOrder();
 }
 
 /* ---------------------------------------------------------------- 호수 입력
@@ -891,7 +1029,8 @@ async function loadRoomNos(){
   box.innerHTML = "";
   let d;
   try{ d = await roomRpc("list"); }catch(e){ $("no-msg").textContent = "불러오지 못했습니다."; return; }
-  const rooms = (d && d.rooms) || [];
+  ROOMS = (d && d.rooms) || [];
+  const rooms = sortRooms(ROOMS);
   if(!rooms.length){
     $("no-msg").textContent = "아직 방 배정이 없습니다. 통합 시트를 먼저 올려 주세요.";
     return;
