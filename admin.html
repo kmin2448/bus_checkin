@@ -111,6 +111,9 @@
   .find button{flex:none}
   .findmsg{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--blue);text-align:center}
   .findmsg.none{color:var(--warn)}
+  /* 전체 명단 검색 결과 — 지금 보는 목록에 없는 사람의 소속·탑승·숙박 정보 */
+  #gfound li .gi{font-size:12px;color:var(--gray);margin-top:3px;line-height:1.5}
+  #gfound li .gi b{color:var(--ink);font-weight:700}
   /* 방별 / 소속별 전환 */
   .tabs.sub{margin-bottom:10px}
   .tabs.sub button{flex:1 1 0;min-width:0;height:38px;padding:0;background:var(--btnbg);
@@ -357,6 +360,12 @@
         개별 설정 → 숙박에서 표로 한꺼번에 넣을 수도 있습니다.</p>
     </div>
 
+    <div id="gfound" class="hidden">
+      <h2 id="gfound-h">전체 명단에서 찾음</h2>
+      <ul id="gfound-list"></ul>
+      <p class="hint">위 목록에는 없지만 업로드한 전체 명단에 있는 사람입니다.</p>
+    </div>
+
     <p class="hint" style="margin-top:26px">명단 전체를 넣고 지우는 일과 차량·탑승 위치,
       숙소 안내 문구는 <a href="manage.html">명단 관리</a>에서 합니다.
       한 명씩 넣고 빼는 일은 이 화면에서 합니다.</p>
@@ -584,7 +593,7 @@ function paintFind(){
   msg.classList.toggle("none", n === 0);
   msg.textContent = n
     ? "“" + Q + "” 로 찾은 " + n + what
-    : "“" + Q + "” 로 찾은 것이 없습니다.";
+    : "“" + Q + "” — 이 목록에는 없습니다.";
 }
 
 // 서버를 다시 부르지 않고 지금 들어 있는 자료에서 걸러 낸다.
@@ -594,12 +603,84 @@ function repaint(){
   paintFind();
 }
 
-$("find").addEventListener("input", () => { Q = $("find").value.trim(); repaint(); });
+$("find").addEventListener("input", () => { Q = $("find").value.trim(); repaint(); scheduleGlobalFind(); });
 $("find-x").onclick = () => {
   $("find").value = ""; Q = "";
   repaint();
+  globalFind();
   $("find").focus();
 };
+
+/* ------------------------------------------------ 전체 명단에서 찾기
+   찾기 칸은 지금 보는 목록만 거른다. 그래서 이 편(또는 방)에 없는 사람은
+   검색해도 안 보였다. 업로드한 전체 명단에 있으면 아래에 따로 보여 준다 —
+   소속·연락처와 함께 어느 편을 타고 어디서 묵는지까지. */
+let GF_TIMER = null, GF_SEQ = 0;
+
+// 지금 화면에 이미 나오는 사람인지. 편 탭은 그 편 탑승자, 숙박 탭은 방 배정자.
+function gfShownHere(r){
+  if(TAB === "room") return (r.rooms || []).length > 0;
+  return TAB === "out" ? !!r.rides_out : !!r.rides_back;
+}
+
+function gfItem(r){
+  const el = document.createElement("li");
+  const g = document.createElement("div"); g.className = "grow";
+  const nm = document.createElement("div"); nm.className = "nm";
+  nm.textContent = r.name + (genderOf(r.gender) ? " (" + genderOf(r.gender) + ")" : "") +
+                   (r.note ? " · " + r.note : "");
+  g.appendChild(nm);
+  if(r.no_phone){
+    const s = document.createElement("span"); s.className = "ph";
+    s.textContent = "연락처 추가 필요";
+    g.appendChild(s);
+  }else{
+    const b = document.createElement("button"); b.className = "ph";
+    b.textContent = fmtPhone(r.phone);
+    b.onclick = () => openContact(r.name, r.phone, TAB === "room" ? "room" : "bus");
+    g.appendChild(b);
+  }
+  const gi = document.createElement("div"); gi.className = "gi";
+  const parts = [];
+  if(r.rides_out)  parts.push("가는 편 탑승");
+  if(r.rides_back) parts.push("오는 편 탑승");
+  if(!r.rides_out && !r.rides_back) parts.push("버스 안 탐");
+  parts.push(r.night1 || r.night2
+    ? "숙박 " + [r.night1 ? "1일차" : "", r.night2 ? "2일차" : ""].filter(Boolean).join(" · ")
+    : "숙박 없음");
+  parts.push((r.rooms || []).length ? r.rooms.join(" + ") : "방 미배정");
+  parts.forEach((p, i) => {
+    if(i) gi.appendChild(document.createTextNode("  ·  "));
+    const b = document.createElement(i === parts.length - 1 && (r.rooms || []).length ? "b" : "span");
+    b.textContent = p;
+    gi.appendChild(b);
+  });
+  g.appendChild(gi);
+  el.appendChild(g);
+  return el;
+}
+
+async function globalFind(){
+  const box = $("gfound"), ul = $("gfound-list");
+  if(!Q){ box.classList.add("hidden"); ul.innerHTML = ""; return; }
+  const q = Q, seq = ++GF_SEQ;
+  let d = null;
+  try{ d = await peopleRpc("search", { q: q }); }catch(e){}
+  if(seq !== GF_SEQ || q !== Q) return;   // 그 사이 검색어가 바뀐 응답은 버린다
+  const rows = ((d && d.rows) || []).filter(r => !gfShownHere(r));
+  ul.innerHTML = "";
+  box.classList.toggle("hidden", !rows.length);
+  if(!rows.length) return;
+  $("gfound-h").textContent =
+    (TAB === "room" ? "방 배정 없는 사람" : legLabel(TAB) + " 명단에 없는 사람") +
+    " — 전체 명단에서 " + rows.length + "명 찾음";
+  rows.forEach(r => ul.appendChild(gfItem(r)));
+}
+
+function scheduleGlobalFind(){
+  clearTimeout(GF_TIMER);
+  GF_TIMER = setTimeout(globalFind, 250);
+}
 
 // 소속(1순위) → 이름(2순위). 소속 없는 사람은 맨 뒤로.
 function byGroupName(a, b){
@@ -1351,6 +1432,7 @@ document.addEventListener("keydown", (e) => {
 async function setTab(tab){
   TAB = tab;
   paintTabs();
+  globalFind();   // 어느 목록에 없는 사람인지가 탭에 따라 달라진다
   if(tab !== "room"){
     LEG = tab;
     await rpc("set_leg", { leg: tab });
