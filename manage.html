@@ -133,6 +133,25 @@
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .norow input{flex:none;width:112px;height:38px;padding:0 10px;font-size:14px;
     text-align:center;font-family:var(--mono)}
+  /* 전체 명단 보기 — 사람마다 한 줄, 팀별 묶음 */
+  .alltab{margin-top:10px;overflow:auto;max-height:64vh;background:#fff;
+    border:1px solid var(--hair);border-radius:var(--r)}
+  .alltab table{border-collapse:collapse;width:100%;min-width:560px;font-size:13px}
+  .alltab th{position:sticky;top:0;z-index:1;background:#F7F6F3;padding:8px 8px;
+    font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--gray);
+    border-bottom:1px solid var(--hair);white-space:nowrap}
+  .alltab td{padding:7px 8px;border-top:1px solid var(--hair);text-align:center;
+    white-space:nowrap;color:var(--gray)}
+  .alltab tr:first-child td{border-top:0}
+  .alltab td.nm{text-align:left;font-weight:700;color:var(--ink)}
+  .alltab td.nm span{font-weight:500;color:var(--gray);font-size:12px}
+  .alltab td.ph{font-family:var(--mono);font-size:12px}
+  .alltab td.rm{text-align:left}
+  .alltab td.rm b{color:var(--ink);font-weight:800}
+  .alltab td.o{color:var(--go);font-weight:800}
+  .alltab tr.team td{background:#F7F6F3;text-align:left;font-size:12px;font-weight:800;
+    color:var(--ink);letter-spacing:.02em}
+  .alltab .blankrow td{text-align:center;padding:20px 8px}
   /* 저장·삭제처럼 결과를 바로 알려야 하는 동작에 띄우는 알림 */
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);
     z-index:60;background:#0A0C0F;color:#fff;padding:13px 20px;border-radius:var(--r);
@@ -207,9 +226,22 @@
     <div class="row">
       <button id="sheet-form" class="small">빈 양식 내려받기</button>
       <button id="sheet-down" class="small">지금 명단 내려받기</button>
+      <button id="all-toggle" class="small">전체 명단 보기</button>
     </div>
     <p class="hint">소속은 <b>소속 대학 + 팀명</b>을 합쳐서 한 값으로 관리합니다.<br>
       버스를 타지 않고 숙박만 하는 사람도 함께 올라가 숙소 안내를 받습니다.</p>
+
+    <div id="all-box" class="hidden">
+      <h2>전체 명단 — 팀별 · 방장 먼저</h2>
+      <div class="row" style="margin-top:0">
+        <input id="all-find" type="text" placeholder="이름 · 소속 · 번호로 찾기" autocomplete="off">
+        <button id="all-find-x" class="small">지우기</button>
+      </div>
+      <p class="hint" id="all-msg" style="margin:8px 0 0">—</p>
+      <div class="alltab" id="all-list"></div>
+      <p class="hint">한 사람이 한 줄입니다 — 가는 편 · 오는 편 · 숙박일 · 방 배정을 한눈에 봅니다.
+        방을 두 개 쓰는 사람은 방 칸에 함께 적히고, 방장은 ★ 로 팀 안에서 맨 위에 옵니다.</p>
+    </div>
 
     <details class="cols">
       <summary>엑셀 열 제목 규칙 보기</summary>
@@ -809,6 +841,162 @@ $("sheet-down").onclick = async () => {
     mark(r.night1), mark(r.night2), mark(r.rides_out), mark(r.rides_back)
   ]));
   saveBook(aoa, "명단취합", (d.title || "행사").replace(/[\\/:*?"<>|]/g, "") + "_통합명단.xlsx");
+};
+
+/* ---------------------------------------------------------------- 전체 명단 보기
+   내려받지 않고 화면에서 바로 본다. 사람마다 한 줄로 가는 편 · 오는 편 ·
+   숙박일 · 방 배정을 함께 적고, 팀별로 묶어 방장을 맨 위에 둔다. */
+let ALL_PEOPLE = null;   // 사람 단위로 묶어 둔 전체 명단
+let ALL_Q = "";
+
+// sheet 응답은 (사람, 방) 한 쌍이 한 줄이라, 방 여러 개인 사람을 한 줄로 묶는다.
+function allPersonRows(rows){
+  const map = {}, order = [];
+  rows.forEach(r => {
+    const k = r.phone || ("?" + ((r.note || "").trim() || "-") + "/" + (r.name || "").trim());
+    let p = map[k];
+    if(!p){
+      p = map[k] = { name: r.name || "", phone: r.phone || "", no_phone: !!r.no_phone,
+                     note: (r.note || "").trim(), gender: "",
+                     out: false, back: false, n1: false, n2: false,
+                     rooms: [], leader: false };
+      order.push(k);
+    }
+    p.out  = p.out  || !!r.rides_out;
+    p.back = p.back || !!r.rides_back;
+    p.n1   = p.n1   || !!r.night1;
+    p.n2   = p.n2   || !!r.night2;
+    p.gender = p.gender || (r.gender || "").trim();
+    const label = (r.room_label || "").trim(), no = (r.room_no || "").trim();
+    if(label || no){
+      p.rooms.push({ name: label || no, no: label && no ? no : "", lead: !!r.is_leader });
+      p.leader = p.leader || !!r.is_leader;
+    }
+  });
+  return order.map(k => map[k]);
+}
+
+// 이름 · 소속 · 방 이름으로도, 번호 뒷자리로도 찾는다.
+function allHit(p){
+  if(!ALL_Q) return true;
+  const q = ALL_Q.toLowerCase().replace(/\s+/g, "");
+  const d = ALL_Q.replace(/\D/g, "");
+  const txt = (p.name + p.note + p.rooms.map(r => r.name + r.no).join(""))
+    .toLowerCase().replace(/\s+/g, "");
+  if(q && txt.indexOf(q) >= 0) return true;
+  if(d.length >= 2 && p.phone.replace(/\D/g, "").indexOf(d) >= 0) return true;
+  return false;
+}
+
+function allCell(text, cls){
+  const td = document.createElement("td");
+  if(cls) td.className = cls;
+  td.textContent = text;
+  return td;
+}
+
+function paintAll(){
+  if(ALL_PEOPLE === null) return;
+  const box = $("all-list");
+  box.innerHTML = "";
+  const people = ALL_PEOPLE.filter(allHit);
+
+  // 팀별로 묶고, 팀 안에서는 방장 먼저 → 이름순.
+  const by = {}, teams = [];
+  people.forEach(p => {
+    const t = p.note || "소속 없음";
+    if(!by[t]){ by[t] = []; teams.push(t); }
+    by[t].push(p);
+  });
+  teams.sort((a, b) => a === "소속 없음" ? 1 : b === "소속 없음" ? -1 : a.localeCompare(b, "ko"));
+  teams.forEach(t => by[t].sort((a, b) => {
+    if(a.leader !== b.leader) return a.leader ? -1 : 1;
+    return (a.name || "").localeCompare(b.name || "", "ko");
+  }));
+
+  $("all-msg").textContent = ALL_Q
+    ? (people.length ? "“" + ALL_Q + "” 로 찾은 " + people.length + "명 · " + teams.length + "팀" : "“" + ALL_Q + "” 로 찾은 사람이 없습니다.")
+    : "전체 " + people.length + "명 · " + teams.length + "팀";
+
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  ["이름","연락처","가는 편","오는 편","1일차","2일차","방 (방장 ★)"].forEach(h => {
+    const th = document.createElement("th");
+    th.textContent = h;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr); table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+
+  if(!people.length){
+    const tr = document.createElement("tr"); tr.className = "blankrow";
+    const td = document.createElement("td"); td.colSpan = 7;
+    td.textContent = ALL_Q ? "찾은 사람이 없습니다." : "아직 명단이 없습니다.";
+    tr.appendChild(td); tbody.appendChild(tr);
+  }
+
+  teams.forEach(t => {
+    const tr = document.createElement("tr"); tr.className = "team";
+    const td = document.createElement("td"); td.colSpan = 7;
+    td.textContent = t + " · " + by[t].length + "명";
+    tr.appendChild(td); tbody.appendChild(tr);
+
+    by[t].forEach(p => {
+      const row = document.createElement("tr");
+      const nm = allCell("", "nm");
+      nm.appendChild(document.createTextNode((p.leader ? "★" : "") + p.name));
+      if(p.gender){
+        const s = document.createElement("span");
+        s.textContent = " (" + p.gender.charAt(0) + ")";
+        nm.appendChild(s);
+      }
+      row.appendChild(nm);
+      row.appendChild(allCell(p.no_phone ? "입력필요" : fmtPhone(p.phone), "ph"));
+      row.appendChild(allCell(p.out ? "O" : "", p.out ? "o" : ""));
+      row.appendChild(allCell(p.back ? "O" : "", p.back ? "o" : ""));
+      row.appendChild(allCell(p.n1 ? "O" : "", p.n1 ? "o" : ""));
+      row.appendChild(allCell(p.n2 ? "O" : "", p.n2 ? "o" : ""));
+      const rm = allCell("", "rm");
+      p.rooms.forEach((r, i) => {
+        if(i) rm.appendChild(document.createTextNode(" + "));
+        const el = document.createElement(r.lead ? "b" : "span");
+        el.textContent = (r.lead ? "★" : "") + r.name + (r.no ? "(" + r.no + ")" : "");
+        rm.appendChild(el);
+      });
+      if(!p.rooms.length) rm.textContent = "—";
+      row.appendChild(rm);
+      tbody.appendChild(row);
+    });
+  });
+
+  table.appendChild(tbody);
+  box.appendChild(table);
+}
+
+$("all-toggle").onclick = async () => {
+  const box = $("all-box");
+  if(!box.classList.contains("hidden")){
+    box.classList.add("hidden");
+    $("all-toggle").textContent = "전체 명단 보기";
+    return;
+  }
+  box.classList.remove("hidden");
+  $("all-toggle").textContent = "전체 명단 닫기";
+  $("all-msg").textContent = "불러오는 중…";
+  $("all-list").innerHTML = "";
+  let d;
+  try{ d = await rpc("sheet"); }catch(e){ d = null; }
+  if(!d || d.status !== "ok"){ $("all-msg").textContent = "불러오지 못했습니다."; return; }
+  ALL_PEOPLE = allPersonRows(d.rows || []);
+  paintAll();
+};
+
+$("all-find").addEventListener("input", () => { ALL_Q = $("all-find").value.trim(); paintAll(); });
+$("all-find-x").onclick = () => {
+  $("all-find").value = ""; ALL_Q = "";
+  paintAll();
+  $("all-find").focus();
 };
 
 $("sheet-form").onclick = () => {
