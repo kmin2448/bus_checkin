@@ -139,7 +139,10 @@ Supabase 프로젝트 `sudcoss-pd-exhibition` (`jqvbuqgpgmqyviqdkzvl`).
 | `collecting_room` | **숙소 방 안내 On/Off** — 꺼 두면 서버가 방 정보를 내주지 않는다 |
 | `room_order` | 객실 표시 순서 — 방 구분을 쉼표로. 기본 `더블,트윈,트리플,더블온돌` |
 | `collecting` | 예전 단일 스위치. 두 편 중 하나라도 On 이면 `on` 으로 유지되는 호환용 값 |
-| `event_title`, `bus_no`, `boarding_place` | 화면에 표시되는 행사 정보 |
+| `event_title` | 모든 화면 맨 위에 표시되는 행사 이름 |
+| `bus_no_out` / `bus_no_back` | **편별 차량 번호** |
+| `boarding_place_out` / `boarding_place_back` | **편별 탑승 위치** |
+| `bus_no`, `boarding_place` | 편별로 나뉘기 전에 쓰던 공용 값. 이제 읽지 않는다 |
 
 ### RPC
 
@@ -166,7 +169,9 @@ Supabase 프로젝트 `sudcoss-pd-exhibition` (`jqvbuqgpgmqyviqdkzvl`).
 - `bus_people_admin(p_code, p_action, p_payload)` — 한 명씩 넣고 빼기.
   `search`(이름·소속·번호로 찾기) / `add` · `del`(편) / `room_add` · `room_del` ·
   `room_leader`(방). bus_admin 이 이미 길어서 함수를 따로 뒀고, 보호 방식은 같다
-- `bus_set_info(p_code, p_bus, p_place)`
+- `bus_set_info(p_code, p_bus, p_place, p_leg default null)` — 편별 차량·탑승 위치 저장.
+  `p_leg` 를 안 주면(예전 화면) 두 편에 같이 쓴다. `bus_status()` 의 `bus_no` · `place` 는
+  지금 열려 있는 편의 값이고, 두 편 값 전부는 `info.out` / `info.back` 에 있다
 
 `p_leg` 를 넘기지 않으면 켜져 있는 편 중 하나를 알아서 고르므로, 예전에 배포된
 화면도 그대로 동작합니다.

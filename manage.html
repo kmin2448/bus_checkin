@@ -295,7 +295,7 @@
       <input id="place-in" type="text" placeholder="탑승 위치 (예: 강원대 백녕관 앞)" style="margin-top:8px">
       <div class="row"><button id="save-info" class="small">차량 · 탑승 위치 저장</button></div>
       <p class="hint">참가자 탑승 확인 화면 맨 아래에 표시됩니다. 비워 두면 표시되지 않습니다.
-        <br><b>두 편이 같은 값을 씁니다.</b></p>
+        <br><b>가는 편과 오는 편에 따로 저장됩니다</b> — 위 탭에서 고른 편에만 적용됩니다.</p>
 
       <h2>명단 정리</h2>
       <div class="row">
@@ -566,19 +566,25 @@ function groupPeople(rows){
 }
 
 
+// 차량·탑승 위치는 편마다 따로다. 지금 고른 편(TAB)의 값을 보여 주고 그 편에만 저장한다.
 async function loadInfo(){
+  if(TAB === "room") return;
   try{
     const s = await call("bus_status");
-    if(document.activeElement !== $("bus-in")) $("bus-in").value = s.bus_no || "";
-    if(document.activeElement !== $("place-in")) $("place-in").value = s.place || "";
+    const i = (s.info || {})[TAB] || { bus_no: s.bus_no, place: s.place };
+    if(document.activeElement !== $("bus-in")) $("bus-in").value = i.bus_no || "";
+    if(document.activeElement !== $("place-in")) $("place-in").value = i.place || "";
   }catch(e){}
 }
 
 $("save-info").onclick = async () => {
   const d = await call("bus_set_info", {
-    p_code: CODE, p_bus: $("bus-in").value.trim(), p_place: $("place-in").value.trim()
+    p_code: CODE, p_bus: $("bus-in").value.trim(), p_place: $("place-in").value.trim(),
+    p_leg: TAB
   }).catch(() => null);
-  toast(d && d.status === "ok" ? "저장 되었습니다." : "저장하지 못했습니다.", !(d && d.status === "ok"));
+  toast(d && d.status === "ok"
+    ? legLabel(TAB) + " 차량 · 탑승 위치가 저장 되었습니다."
+    : "저장하지 못했습니다.", !(d && d.status === "ok"));
 };
 
 // 숙소 안내 문구 — bus_config(room_key_guide / checkout_guide)에 저장된다.
@@ -903,6 +909,7 @@ async function setTab(tab){
   paintTabs();
   if(tab === "room"){ loadGuides(); loadRoomNos().then(paintOrder); loadOrder(); return; }
   LEG = tab;
+  loadInfo();   // 차량·탑승 위치는 편마다 다르므로 고른 편 것을 다시 불러온다
   await rpc("set_leg", { leg: tab });
   load();
 }

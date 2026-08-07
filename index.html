@@ -458,8 +458,11 @@ function openLegs(){
 }
 
 function paintInfo(){
-  const bus = (STATE.bus_no || "").trim();
-  const place = (STATE.place || "").trim();
+  // 차량·탑승 위치는 편마다 다르다. 지금 보고 있는 편의 값을 쓰고,
+  // info 가 없는 예전 서버 응답이면 공용 값으로 돌아간다.
+  const i = (STATE.info || {})[LEG] || { bus_no: STATE.bus_no, place: STATE.place };
+  const bus = (i.bus_no || "").trim();
+  const place = (i.place || "").trim();
   $("info-bus-v").textContent = bus;
   $("info-place-v").textContent = place;
   $("info-bus").classList.toggle("hidden", !bus);
