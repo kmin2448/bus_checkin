@@ -137,10 +137,12 @@
     background:#fff;border:1px solid var(--btn);border-radius:var(--r);
     box-shadow:0 12px 32px rgba(20,24,32,.18);padding:10px 12px}
   .selbar .si{flex:1;min-width:0}
-  .selbar .si b{display:block;font-size:13px;font-weight:800;color:var(--ink)}
+  .selbar .si b{display:block;font-size:13px;font-weight:800;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .selbar .si span{display:block;font-size:12px;color:var(--gray);margin-top:2px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .selbar button{flex:none;height:40px;font-size:14px}
+  .selbar button{flex:none;height:40px;font-size:14px;padding:0 10px}
+  #selbar-x{width:40px;padding:0;color:var(--gray)}
   body.selpad{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
   /* 소속별 보기의 소속 머리 */
   .ghead{margin:14px 0 6px;font-size:14px;font-weight:800;letter-spacing:-.02em;
@@ -382,7 +384,7 @@
         방 배정 전체는 명단 관리의 통합 시트로 올리고, 호수는 명단 관리 →
         개별 설정 → 숙박에서 표로 한꺼번에 넣을 수도 있습니다.<br>
         <b>방장 문자</b>를 누르면 방이나 소속을 여러 개 골라
-        그 방장들에게 한 번에 문자를 보낼 수 있습니다.</p>
+        그 방장들에게만, 또는 해당 인원 전원에게 한 번에 문자를 보낼 수 있습니다.</p>
     </div>
 
     <div id="gfound" class="hidden">
@@ -534,8 +536,9 @@
 
 <div id="selbar" class="selbar hidden">
   <div class="si"><b id="selbar-t">—</b><span id="selbar-s"></span></div>
-  <button id="selbar-send" class="hl" disabled>방장에게 문자</button>
-  <button id="selbar-x">끝내기</button>
+  <button id="selbar-lead" class="hl" disabled>방장 문자</button>
+  <button id="selbar-all" disabled>전원 문자</button>
+  <button id="selbar-x" aria-label="선택 끝내기">✕</button>
 </div>
 
 <script>
@@ -1241,8 +1244,9 @@ function renderByNote(box, list){
 
 /* ---------------------------------------------------------------- 방장 문자
    방별 보기에서는 방을, 소속별 보기에서는 소속을 여러 개 고른 뒤
-   그 방들의 방장에게 한 번에 문자를 보낸다. (같은 사람은 한 번만)
-   발송은 다른 문자와 똑같이 sms: 링크로 휴대폰 문자 앱에서 직접 누른다. */
+   그 방들의 방장에게만 보내거나 해당 인원 전원에게 한 번에 보낸다.
+   (같은 사람은 한 번만) 발송은 다른 문자와 똑같이 sms: 링크로
+   휴대폰 문자 앱에서 직접 누른다. */
 function makePick(el, on, flip){
   el.classList.add("pick");
   el.classList.toggle("sel", on);
@@ -1277,12 +1281,30 @@ function selLeaders(){
   return rows;
 }
 
+// 전원에게 보낼 때. 소속을 골랐으면 그 소속 사람만 — 방을 나눠 쓰는
+// 다른 팀 사람에게까지 가면 안 된다. 방을 골랐으면 그 방에 든 전원이다.
+function selAll(){
+  const seen = {}, rows = [];
+  if(ROOM_VIEW === "note"){
+    ROOMS.forEach(r => (r.members || []).forEach(m => {
+      const n = (m.note || "").trim() || "소속 없음";
+      if(SEL_NOTES.has(n) && m.phone && !seen[m.phone]){ seen[m.phone] = 1; rows.push(m); }
+    }));
+  }else{
+    selRooms().forEach(r => (r.members || []).forEach(m => {
+      if(m.phone && !seen[m.phone]){ seen[m.phone] = 1; rows.push(m); }
+    }));
+  }
+  return rows;
+}
+
 function paintSelBar(){
   if(!SEL_MODE) return;
   const note = ROOM_VIEW === "note";
   const nSel = note ? SEL_NOTES.size : SEL_ROOMS.size;
   const rooms = selRooms();
   const leaders = selLeaders();
+  const all = selAll();
   const noLead = rooms.filter(r =>
     !(r.members || []).some(m => m.is_leader && m.phone)).length;
   if(!nSel){
@@ -1292,11 +1314,12 @@ function paintSelBar(){
       : "방 카드를 누르면 골라집니다. 여러 개를 고를 수 있습니다.";
   }else{
     $("selbar-t").textContent = (note ? "소속 " + nSel + "곳" : "방 " + nSel + "개") +
-      (note ? " · 방 " + rooms.length + "개" : "") + " · 방장 " + leaders.length + "명";
+      " · 방장 " + leaders.length + "명 · 전원 " + all.length + "명";
     $("selbar-s").textContent = (leaders.length ? "방장: " + leaders.map(m => m.name).join(", ") : "") +
       (noLead ? (leaders.length ? " · " : "") + "방장이 없거나 번호 없는 방 " + noLead + "개는 빠집니다" : "");
   }
-  $("selbar-send").disabled = !leaders.length;
+  $("selbar-lead").disabled = !leaders.length;
+  $("selbar-all").disabled = !all.length;
 }
 
 function setSelMode(on){
@@ -1311,14 +1334,17 @@ function setSelMode(on){
 
 $("sms-leaders").onclick = () => setSelMode(!SEL_MODE);
 $("selbar-x").onclick = () => setSelMode(false);
-$("selbar-send").onclick = () => {
-  const leaders = selLeaders();
-  if(!leaders.length) return;
-  const label = ROOM_VIEW === "note"
-    ? "선택한 소속 방장 (" + SEL_NOTES.size + "곳)"
-    : "선택한 방 방장 (" + SEL_ROOMS.size + "개)";
-  openSms(label, leaders, "team", "room");
-};
+// 방장에게만 보낼지, 고른 방·소속의 전원에게 보낼지 골라서 보낸다.
+function sendSel(who){
+  const rows = who === "all" ? selAll() : selLeaders();
+  if(!rows.length) return;
+  const label = (ROOM_VIEW === "note" ? "선택한 소속" : "선택한 방") + " " +
+    (who === "all" ? "전원" : "방장") + " (" +
+    (ROOM_VIEW === "note" ? SEL_NOTES.size + "곳" : SEL_ROOMS.size + "개") + ")";
+  openSms(label, rows, "team", "room");
+}
+$("selbar-lead").onclick = () => sendSel("lead");
+$("selbar-all").onclick = () => sendSel("all");
 
 // 방과 상관없이 배정된 사람 전체를 15명씩 끊어 보낸다. (같은 번호는 한 번만)
 $("sms-all-rooms").onclick = () => {
