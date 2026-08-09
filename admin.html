@@ -120,6 +120,28 @@
     border:1px solid var(--btn);border-radius:var(--r);color:var(--gray);
     font-weight:700;font-size:13px}
   .tabs.sub button.on{background:#fff;color:#000;font-weight:800;box-shadow:inset 0 -3px 0 var(--blue)}
+  /* 방장 문자 — 방·소속을 여러 개 골라 그 방장들에게 한 번에 보내는 선택 모드 */
+  .ck{flex:none;display:inline-flex;align-items:center;justify-content:center;
+    width:22px;height:22px;border-radius:50%;border:1.5px solid var(--btn);
+    background:#fff;color:#fff;font-size:13px;font-weight:800;line-height:1}
+  .sel .ck{background:var(--navy);border-color:var(--navy)}
+  .room.pick,.ghead.pick{cursor:pointer}
+  /* 고르는 동안에는 카드 안 버튼이 눌리면 안 된다. 눌러도 선택으로 친다. */
+  .room.pick button,.room.pick a{opacity:.45;pointer-events:none}
+  .room.sel{border-color:var(--navy);background:#F4F7FC;
+    box-shadow:0 0 0 1.5px rgba(30,58,95,.3)}
+  .ghead .ck{align-self:center}
+  .ghead.sel{color:var(--navy)}
+  .selbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:25;
+    width:calc(100% - 32px);max-width:560px;display:flex;align-items:center;gap:8px;
+    background:#fff;border:1px solid var(--btn);border-radius:var(--r);
+    box-shadow:0 12px 32px rgba(20,24,32,.18);padding:10px 12px}
+  .selbar .si{flex:1;min-width:0}
+  .selbar .si b{display:block;font-size:13px;font-weight:800;color:var(--ink)}
+  .selbar .si span{display:block;font-size:12px;color:var(--gray);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .selbar button{flex:none;height:40px;font-size:14px}
+  body.selpad{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
   /* 소속별 보기의 소속 머리 */
   .ghead{margin:14px 0 6px;font-size:14px;font-weight:800;letter-spacing:-.02em;
     display:flex;align-items:baseline;gap:8px}
@@ -347,6 +369,7 @@
 
       <h2 class="h2row">방 목록 — 방장은 ★ 표시
         <button id="new-room" class="small">방 만들기</button>
+        <button id="sms-leaders" class="small">방장 문자</button>
         <button id="sms-all-rooms" class="small">전체 문자</button></h2>
       <div class="tabs sub">
         <button id="view-room" class="on">방별 보기</button>
@@ -357,7 +380,9 @@
         탑승 명단에는 그대로 남고 방 미배정이 됩니다.<br>
         방 카드의 톱니바퀴에서 인원 변경과 호수 입력을 합니다.
         방 배정 전체는 명단 관리의 통합 시트로 올리고, 호수는 명단 관리 →
-        개별 설정 → 숙박에서 표로 한꺼번에 넣을 수도 있습니다.</p>
+        개별 설정 → 숙박에서 표로 한꺼번에 넣을 수도 있습니다.<br>
+        <b>방장 문자</b>를 누르면 방이나 소속을 여러 개 골라
+        그 방장들에게 한 번에 문자를 보낼 수 있습니다.</p>
     </div>
 
     <div id="gfound" class="hidden">
@@ -507,6 +532,12 @@
   </div>
 </div>
 
+<div id="selbar" class="selbar hidden">
+  <div class="si"><b id="selbar-t">—</b><span id="selbar-s"></span></div>
+  <button id="selbar-send" class="hl" disabled>방장에게 문자</button>
+  <button id="selbar-x">끝내기</button>
+</div>
+
 <script>
 const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
@@ -531,6 +562,9 @@ let COLLECT = { out:true, back:true };
 let ROOM_OPEN = true;
 let ROOMS = [];
 let ROOM_VIEW = "room";   // "room" = 방별 보기 / "note" = 소속별 보기
+// 방장 문자 선택 모드. 방별 보기에서는 방을, 소속별 보기에서는 소속을 고른다.
+let SEL_MODE = false;
+let SEL_ROOMS = new Set(), SEL_NOTES = new Set();
 // 마지막으로 받아 둔 자료. 찾기 칸을 칠 때마다 이걸로 다시 그린다.
 let LAST_LIST = null, LAST_ROOMS = null;
 let SMS_LISTS = { left:[], done:[] };   // 목록 전체로 문자 보낼 때 쓰는 현재 명단
@@ -742,6 +776,7 @@ function bindLongPress(el, fire, skipButtons){
   const go = () => {
     if(fired) return;
     fired = true; stop();
+    if(SEL_MODE) return;   // 방·소속을 고르는 동안에는 길게 눌러 빼기가 열리면 안 된다
     if(navigator.vibrate) navigator.vibrate(12);
     fire();
   };
@@ -1143,11 +1178,17 @@ function renderRooms(d){
       : "아직 방 배정이 없습니다. 명단 관리에서 방 열이 있는 시트를 올려 주세요.";
     box.appendChild(p);
     paintFind();
+    paintSelBar();
     return;
   }
   if(ROOM_VIEW === "note") renderByNote(box, list);
-  else list.forEach(r => box.appendChild(roomCard(r)));
+  else list.forEach(r => {
+    const card = roomCard(r);
+    if(SEL_MODE) makePick(card, SEL_ROOMS.has(r.room), () => flipSel(SEL_ROOMS, r.room));
+    box.appendChild(card);
+  });
   paintFind();
+  paintSelBar();
 }
 
 /* 소속별 보기 — 소속(대학+팀명)으로 묶어서 그 소속이 쓰는 방을 늘어놓는다.
@@ -1179,6 +1220,7 @@ function renderByNote(box, list){
     const sub = document.createElement("span");
     sub.textContent = people + "명 · " + rooms.length + "실";
     h.appendChild(sub);
+    if(SEL_MODE) makePick(h, SEL_NOTES.has(n), () => flipSel(SEL_NOTES, n));
     box.appendChild(h);
 
     sortRooms(rooms).forEach(r => {
@@ -1190,10 +1232,93 @@ function renderByNote(box, list){
         s.textContent = "함께 쓰는 방 · " + others.join(" · ");
         card.querySelector(".rm").appendChild(s);
       }
+      // 소속별 보기에서는 카드를 눌러도 그 소속을 고른 것으로 친다.
+      if(SEL_MODE) makePick(card, SEL_NOTES.has(n), () => flipSel(SEL_NOTES, n));
       box.appendChild(card);
     });
   });
 }
+
+/* ---------------------------------------------------------------- 방장 문자
+   방별 보기에서는 방을, 소속별 보기에서는 소속을 여러 개 고른 뒤
+   그 방들의 방장에게 한 번에 문자를 보낸다. (같은 사람은 한 번만)
+   발송은 다른 문자와 똑같이 sms: 링크로 휴대폰 문자 앱에서 직접 누른다. */
+function makePick(el, on, flip){
+  el.classList.add("pick");
+  el.classList.toggle("sel", on);
+  const ck = document.createElement("span");
+  ck.className = "ck";
+  ck.textContent = on ? "✓" : "";
+  const rt = el.querySelector(".rt");
+  if(rt) rt.insertBefore(ck, rt.firstChild);
+  else el.insertBefore(ck, el.firstChild);
+  // 카드 안 버튼(문자·톱니·키 수령…)이 따라 눌리지 않게 잡아채서 선택만 한다.
+  el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); flip(); }, true);
+}
+
+function flipSel(set, key){
+  if(set.has(key)) set.delete(key);
+  else set.add(key);
+  if(LAST_ROOMS) renderRooms(LAST_ROOMS);
+}
+
+// 지금 고른 방들. 소속별 보기에서는 고른 소속이 쓰는 방 전부다.
+function selRooms(){
+  return ROOM_VIEW === "note"
+    ? ROOMS.filter(r => notesOf(r).some(n => SEL_NOTES.has(n)))
+    : ROOMS.filter(r => SEL_ROOMS.has(r.room));
+}
+
+function selLeaders(){
+  const seen = {}, rows = [];
+  selRooms().forEach(r => (r.members || []).forEach(m => {
+    if(m.is_leader && m.phone && !seen[m.phone]){ seen[m.phone] = 1; rows.push(m); }
+  }));
+  return rows;
+}
+
+function paintSelBar(){
+  if(!SEL_MODE) return;
+  const note = ROOM_VIEW === "note";
+  const nSel = note ? SEL_NOTES.size : SEL_ROOMS.size;
+  const rooms = selRooms();
+  const leaders = selLeaders();
+  const noLead = rooms.filter(r =>
+    !(r.members || []).some(m => m.is_leader && m.phone)).length;
+  if(!nSel){
+    $("selbar-t").textContent = note ? "소속을 골라 주세요" : "방을 골라 주세요";
+    $("selbar-s").textContent = note
+      ? "소속 이름이나 방 카드를 누르면 그 소속이 고릅니다."
+      : "방 카드를 누르면 골라집니다. 여러 개를 고를 수 있습니다.";
+  }else{
+    $("selbar-t").textContent = (note ? "소속 " + nSel + "곳" : "방 " + nSel + "개") +
+      (note ? " · 방 " + rooms.length + "개" : "") + " · 방장 " + leaders.length + "명";
+    $("selbar-s").textContent = (leaders.length ? "방장: " + leaders.map(m => m.name).join(", ") : "") +
+      (noLead ? (leaders.length ? " · " : "") + "방장이 없거나 번호 없는 방 " + noLead + "개는 빠집니다" : "");
+  }
+  $("selbar-send").disabled = !leaders.length;
+}
+
+function setSelMode(on){
+  SEL_MODE = on;
+  if(!on){ SEL_ROOMS.clear(); SEL_NOTES.clear(); }
+  $("sms-leaders").classList.toggle("hl", on);
+  $("sms-leaders").textContent = on ? "선택 끝내기" : "방장 문자";
+  $("selbar").classList.toggle("hidden", !on);
+  document.body.classList.toggle("selpad", on);
+  if(LAST_ROOMS) renderRooms(LAST_ROOMS);
+}
+
+$("sms-leaders").onclick = () => setSelMode(!SEL_MODE);
+$("selbar-x").onclick = () => setSelMode(false);
+$("selbar-send").onclick = () => {
+  const leaders = selLeaders();
+  if(!leaders.length) return;
+  const label = ROOM_VIEW === "note"
+    ? "선택한 소속 방장 (" + SEL_NOTES.size + "곳)"
+    : "선택한 방 방장 (" + SEL_ROOMS.size + "개)";
+  openSms(label, leaders, "team", "room");
+};
 
 // 방과 상관없이 배정된 사람 전체를 15명씩 끊어 보낸다. (같은 번호는 한 번만)
 $("sms-all-rooms").onclick = () => {
@@ -1426,11 +1551,13 @@ document.addEventListener("keydown", (e) => {
   if(!$("mem-modal").classList.contains("hidden")){ closeMembers(); return; }
   if(!$("rset-modal").classList.contains("hidden")){ closeRoomSet(); return; }
   if(!$("add-modal").classList.contains("hidden")){ closeAdd(); return; }
-  if(!$("req-modal").classList.contains("hidden")) closeRequests();
+  if(!$("req-modal").classList.contains("hidden")){ closeRequests(); return; }
+  if(SEL_MODE) setSelMode(false);
 });
 
 async function setTab(tab){
   TAB = tab;
+  if(tab !== "room" && SEL_MODE) setSelMode(false);
   paintTabs();
   globalFind();   // 어느 목록에 없는 사람인지가 탭에 따라 달라진다
   if(tab !== "room"){
