@@ -371,7 +371,7 @@
 
       <h2 class="h2row">방 목록 — 방장은 ★ 표시
         <button id="new-room" class="small">방 만들기</button>
-        <button id="sms-leaders" class="small">방장 문자</button>
+        <button id="sms-leaders" class="small">선택 문자</button>
         <button id="sms-all-rooms" class="small">전체 문자</button></h2>
       <div class="tabs sub">
         <button id="view-room" class="on">방별 보기</button>
@@ -383,7 +383,7 @@
         방 카드의 톱니바퀴에서 인원 변경과 호수 입력을 합니다.
         방 배정 전체는 명단 관리의 통합 시트로 올리고, 호수는 명단 관리 →
         개별 설정 → 숙박에서 표로 한꺼번에 넣을 수도 있습니다.<br>
-        <b>방장 문자</b>를 누르면 방이나 소속을 여러 개 골라
+        <b>선택 문자</b>를 누르면 방이나 소속을 여러 개 골라
         그 방장들에게만, 또는 해당 인원 전원에게 한 번에 문자를 보낼 수 있습니다.</p>
     </div>
 
@@ -1242,7 +1242,7 @@ function renderByNote(box, list){
   });
 }
 
-/* ---------------------------------------------------------------- 방장 문자
+/* ---------------------------------------------------------------- 선택 문자
    방별 보기에서는 방을, 소속별 보기에서는 소속을 여러 개 고른 뒤
    그 방들의 방장에게만 보내거나 해당 인원 전원에게 한 번에 보낸다.
    (같은 사람은 한 번만) 발송은 다른 문자와 똑같이 sms: 링크로
@@ -1326,7 +1326,7 @@ function setSelMode(on){
   SEL_MODE = on;
   if(!on){ SEL_ROOMS.clear(); SEL_NOTES.clear(); }
   $("sms-leaders").classList.toggle("hl", on);
-  $("sms-leaders").textContent = on ? "선택 끝내기" : "방장 문자";
+  $("sms-leaders").textContent = on ? "선택 끝내기" : "선택 문자";
   $("selbar").classList.toggle("hidden", !on);
   document.body.classList.toggle("selpad", on);
   if(LAST_ROOMS) renderRooms(LAST_ROOMS);
