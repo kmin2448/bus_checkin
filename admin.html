@@ -309,7 +309,10 @@
     <p class="kicker" id="title-band">행사</p>
     <div class="head">
       <h1 class="one">탑승 · 숙박 현황</h1>
-      <a class="linkbtn" href="manage.html">설정</a>
+      <div style="display:flex;gap:8px">
+        <button id="sheet-save" title="지금 명단을 방배정·객실번호까지 엑셀로 저장">명단 저장</button>
+        <a class="linkbtn" href="manage.html">설정</a>
+      </div>
     </div>
 
     <div class="tabs">
@@ -2101,6 +2104,54 @@ $("sms-all-done").onclick = () => openSmsList("done");
 
 $("sms-close").onclick = closeSms;
 $("sms-modal").addEventListener("click", (e) => { if(e.target === $("sms-modal")) closeSms(); });
+
+/* ---------------------------------------------------------------- 명단 저장
+   지금 올라가 있는 명단을 숙박 정보(방배정 · 객실번호 · 방장)까지 담아
+   엑셀로 저장한다. 명단 관리의 "지금 명단 내려받기" 와 같은 형식이라,
+   받은 파일을 고쳐 통합 시트로 그대로 다시 올릴 수 있다. */
+const SHEET_COLS = ["소속 · 팀","이름","연락처","성별","방배정 (가안)","객실번호",
+                    "방장 (방키수령)","1일차 숙박","2일차 숙박","가는차 탑승","오는차 탑승"];
+
+// 현황 화면은 행사 내내 띄워 두는 화면이라 엑셀 라이브러리를 미리 싣지 않고,
+// 저장 버튼을 눌렀을 때에만 가져온다.
+function loadXlsx(){
+  return new Promise((ok, fail) => {
+    if(window.XLSX) return ok();
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    s.onload = ok;
+    s.onerror = () => fail(new Error("xlsx load"));
+    document.head.appendChild(s);
+  });
+}
+
+$("sheet-save").onclick = async () => {
+  const btn = $("sheet-save");
+  btn.disabled = true;
+  try{
+    let d;
+    try{ d = await rpc("sheet"); }catch(e){ d = null; }
+    if(!d || d.status !== "ok"){ toast("명단을 불러오지 못했습니다.", true); return; }
+    const rows = d.rows || [];
+    if(!rows.length){ toast("아직 명단이 없습니다.", true); return; }
+    try{ await loadXlsx(); }
+    catch(e){ toast("저장 도구를 불러오지 못했습니다. 잠시 후 다시 눌러 주세요.", true); return; }
+
+    const mark = (b) => b ? "O" : "";
+    // 방을 두 개 쓰는 사람은 두 줄로 나온다. 그대로 다시 올리면 다시 묶인다.
+    const aoa = [SHEET_COLS].concat(rows.map(r => [
+      r.note || "", r.name || "", r.no_phone ? "입력필요" : (fmtPhone(r.phone) || ""),
+      r.gender || "", r.room_label || "", r.room_no || "", mark(r.is_leader),
+      mark(r.night1), mark(r.night2), mark(r.rides_out), mark(r.rides_back)
+    ]));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws["!cols"] = aoa[0].map(h => ({ wch: /이름|연락처|소속/.test(h) ? 18 : 12 }));
+    XLSX.utils.book_append_sheet(wb, ws, "명단취합");
+    XLSX.writeFile(wb, (d.title || "행사").replace(/[\\/:*?"<>|]/g, "") + "_통합명단.xlsx");
+    toast(rows.length + "명 명단을 저장했습니다.");
+  }finally{ btn.disabled = false; }
+};
 
 async function enter(){
   CODE = $("code").value.trim();
