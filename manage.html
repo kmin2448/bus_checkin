@@ -387,8 +387,9 @@
 </div>
 
 <script>
-const SUPABASE_URL = "https://jqvbuqgpgmqyviqdkzvl.supabase.co";
-const SUPABASE_KEY = "sb_publishable_xZsd17tzIedGr82lVQZUXA_lx68Hfd4";
+const SUPABASE_URL = "https://ytkidrqfyguufyzfpwqy.supabase.co";
+const SUPABASE_KEY = "sb_publishable_H7N-FfcLn0IgJMa2rFuYuw_w2Jvu6kg";
+const SUPABASE_SCHEMA = "exhibition"; // coss-budget 프로젝트의 exhibition 스키마 (2026-10-19 이전)
 const $ = (id) => document.getElementById(id);
 
 /* 저장·삭제가 실제로 됐는지 눈으로 확인할 수 있게 잠깐 띄운다. */
@@ -407,7 +408,7 @@ let CODE = "", LEG = "out";
 async function call(fn, body){
   const res = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + fn, {
     method:"POST",
-    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY},
+    headers:{"Content-Type":"application/json","apikey":SUPABASE_KEY,"Authorization":"Bearer "+SUPABASE_KEY,"Content-Profile":SUPABASE_SCHEMA,"Accept-Profile":SUPABASE_SCHEMA},
     body: JSON.stringify(body || {})
   });
   if(!res.ok) throw new Error(await res.text());
